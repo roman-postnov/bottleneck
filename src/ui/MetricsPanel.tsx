@@ -18,9 +18,9 @@ function carlessText(people: number, busRuns: number): string {
 
 function hours(sec: number | null): string {
   if (sec === null) return '—';
-  const h = Math.floor(sec / 3600);
-  const m = Math.round((sec % 3600) / 60);
-  return `${h}h ${String(m).padStart(2, '0')}m`;
+  // Round to minutes first: rounding the remainder on its own prints "3h 60m".
+  const total = Math.round(sec / 60);
+  return `${Math.floor(total / 60)}h ${String(total % 60).padStart(2, '0')}m`;
 }
 
 export function MetricsPanel(): React.ReactElement {
@@ -29,6 +29,8 @@ export function MetricsPanel(): React.ReactElement {
   const clock = useStore((s) => s.clock);
   const probe = useStore((s) => s.probe);
   const curve = useStore((s) => s.curve);
+  const baselineT90 = useStore((s) => s.baselineT90);
+  const edited = useStore((s) => (s.scenario?.edits.length ?? 0) > 0);
 
   const live = metrics === null;
   const carless = metrics
@@ -47,6 +49,14 @@ export function MetricsPanel(): React.ReactElement {
         <span className="label">clearance T90</span>
         <span className="value">{hours(t90)}</span>
         {live && t90 !== null && <span className="muted">approx</span>}
+        {/* The number an intervention is argued with: what it cost or bought against the
+            same city with nothing done to it. */}
+        {edited && baselineT90 !== null && t90 !== null && (
+          <span className={t90 > baselineT90 ? 'delta worse' : 'delta better'}>
+            {t90 > baselineT90 ? '+' : '−'}
+            {hours(Math.abs(t90 - baselineT90))} vs untouched
+          </span>
+        )}
       </div>
 
       <table>

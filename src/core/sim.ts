@@ -8,14 +8,14 @@ import { mobilize, rayleighSigmaSec } from './mobilization.ts';
 import { nodeTransfer } from './nodeModel.ts';
 import { metrics, recordTickStats, updateFrameStats } from './metrics.ts';
 import { NO_TWIN } from './city.ts';
-import type { City, Edit, FrameBuffers, Params, SimState } from './types.ts';
+import type { City, Edit, FrameBuffers, HotEdit, Params, SimState } from './types.ts';
 
 export { metrics, updateFrameStats };
 
 const OUTFLOW_WINDOW_SEC = 300;
 const MAX_TT_SEC = 65535; // ttSec is a Uint16 in SimState, and ringLen must equal it
 
-export function createSim(city: City, params: Params): SimState {
+export function createSim(city: City, params: Params, edits: Edit[] = []): SimState {
   const { V, E } = city;
 
   const cap = new Float32Array(E);
@@ -130,9 +130,46 @@ export function createSim(city: City, params: Params): SimState {
     peakOutflowVehH: 0,
     maxSpillbackM: 0,
     gridlockEdges: 0,
+
+    schedule: [],
+    scheduleCursor: 0,
   };
 
+  const now: HotEdit[] = [];
+  for (const edit of edits) {
+    if (edit.op === 'addRoad') {
+      throw new Error('addRoad changes the topology and requires a full reset (§9.3)');
+    }
+    if (edit.atMin === undefined) now.push(edit);
+    else s.schedule.push(edit);
+  }
+  // Array.prototype.sort is stable, so two edits on the same minute keep their scenario
+  // order. §9.1 requires it: applied the other way round they leave a different `cap`.
+  s.schedule.sort((a, b) => (a.atMin ?? 0) - (b.atMin ?? 0));
+  if (now.length > 0) applyEdits(s, now);
+
   return s;
+}
+
+/**
+ * §9.3. Applies everything the clock has reached. Lives in the core, not in the worker that
+ * owns the clock: every run in Node -- the sanity checks and the whole of the validation --
+ * goes nowhere near the worker, and a schedule hidden there would mean the test and the
+ * browser simulate different cities.
+ *
+ * Returns true if anything fired, which is when the max-flow ceiling has to be recomputed.
+ */
+export function applyDueEdits(s: SimState): boolean {
+  const due: HotEdit[] = [];
+  while (s.scheduleCursor < s.schedule.length) {
+    const edit = s.schedule[s.scheduleCursor];
+    if ((edit.atMin ?? 0) * 60 > s.t) break;
+    due.push(edit);
+    s.scheduleCursor++;
+  }
+  if (due.length === 0) return false;
+  applyEdits(s, due);
+  return true;
 }
 
 function rebuildField(s: SimState): void {
@@ -157,6 +194,9 @@ export function tick(s: SimState): void {
   const { city, params } = s;
   const E = city.E;
   const V = city.V;
+
+  // Before phase 1, so the whole tick is computed on the network the edit leaves behind.
+  applyDueEdits(s);
 
   if (params.routingMode === 'reactive' && s.t > 0 && s.t % params.reoptSec === 0) {
     reoptimize(s);
@@ -255,6 +295,11 @@ export function applyEdits(s: SimState, edits: Edit[]): void {
 }
 
 function setLanes(s: SimState, e: number, lanes: number): void {
+  // A non-zero lane count reopens the edge (§9.3). Without it a closed road could never be
+  // opened again, and the Camp Fire timeline has Clark Road reopening at 13:00.
+  if (lanes > 0) {
+    s.blocked[e] = 0;
+  }
   s.lanes[e] = lanes;
   s.cap[e] = capVehS(lanes, classOf(s.city.flags[e]), s.params.satFlowPerLane);
   s.storage[e] = storageVeh(s.city.lenM[e], lanes, s.params.jamSpacingM);

@@ -46,7 +46,18 @@ class Network {
   }
 }
 
-export function maxFlow(city: City, params: Params, blocked: Uint8Array): MaxFlowResult {
+/**
+ * `lanes` defaults to the city's own, but an edited run must pass the simulation's: §9.3 lets
+ * `lanes` and `contraflow` change the width of a road, and a ceiling computed off the
+ * untouched city would sit below the flow the simulation then achieves -- efficiency above
+ * one, and sanity check 9 broken by a metric rather than by the physics.
+ */
+export function maxFlow(
+  city: City,
+  params: Params,
+  blocked: Uint8Array,
+  lanes: Uint8Array = city.lanes,
+): MaxFlowResult {
   const { V, E } = city;
   const SRC = V;
   const SNK = V + 1;
@@ -62,7 +73,7 @@ export function maxFlow(city: City, params: Params, blocked: Uint8Array): MaxFlo
     if (city.isExit[city.edgeFrom[e]]) continue;
     const c = blocked[e]
       ? 0
-      : Math.round(capVehS(city.lanes[e], classOf(city.flags[e]), params.satFlowPerLane) * 3600);
+      : Math.round(capVehS(lanes[e], classOf(city.flags[e]), params.satFlowPerLane) * 3600);
     capVehH[e] = c;
     arcOf[e] = net.add(city.edgeFrom[e], city.edgeTo[e], c);
   }

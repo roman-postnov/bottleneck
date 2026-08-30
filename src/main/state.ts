@@ -25,6 +25,13 @@ export type UiState = {
   probe: ProbeResult | null;
   speedX: number;
   showCut: boolean;
+  /** T90 of the last completed run that carried no edits, for the delta an intervention
+   *  is judged by. Cleared when the city changes. */
+  baselineT90: number | null;
+  link: string | null;
+  /** Road names for the edges the user has probed, so the edit list can say "Skyway" rather
+   *  than an edge id. Not part of the scenario: a permalink carries ids only (§9.2). */
+  edgeNames: Record<number, string>;
 };
 
 const initial: UiState = {
@@ -40,6 +47,9 @@ const initial: UiState = {
   probe: null,
   speedX: 60,
   showCut: false,
+  baselineT90: null,
+  link: null,
+  edgeNames: {},
 };
 
 let state = initial;

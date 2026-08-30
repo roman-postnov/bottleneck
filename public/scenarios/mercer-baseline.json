@@ -1,0 +1,24 @@
+{
+  "v": 1,
+  "city": "mercer",
+  "seed": 20261101,
+  "demand": {
+    "occupancy": 2.2,
+    "participation": 1,
+    "mobilizationHalfMin": 90
+  },
+  "supply": {
+    "satFlowPerLane": 1800,
+    "jamSpacingM": 7.5,
+    "speedFactor": 1,
+    "srcInjectLanes": 1
+  },
+  "routing": {
+    "mode": "static",
+    "reoptSec": 300,
+    "logitTheta": 0.15,
+    "splitEpsilon": 0.01,
+    "ttSmoothing": 0.3
+  },
+  "edits": []
+}

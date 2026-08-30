@@ -185,6 +185,11 @@ export type SimState = {
   /** Filled from maxflow.ts by whoever runs it; 0 means "not computed". */
   maxFlowVehH: number;
 
+  /** Edits carrying an `atMin`, sorted by it (§9.1). Ties keep their order in the scenario. */
+  schedule: HotEdit[];
+  /** How far through `schedule` the clock has got. */
+  scheduleCursor: number;
+
   // Run statistics, accumulated as the run goes (§11). -1 = threshold not reached.
   t50Sec: number;
   t90Sec: number;
@@ -198,10 +203,12 @@ export type SimState = {
   gridlockEdges: number;
 };
 
+/** `atMin` (§9.1) is the minute of model time the edit lands on; absent means "at configure",
+ *  before the first tick. It is what lets a closure made mid-run survive into the permalink. */
 export type Edit =
-  | { op: 'close'; edgeId: number }
-  | { op: 'lanes'; edgeId: number; lanes: number }
-  | { op: 'contraflow'; edgeId: number }
+  | { op: 'close'; edgeId: number; atMin?: number }
+  | { op: 'lanes'; edgeId: number; lanes: number; atMin?: number }
+  | { op: 'contraflow'; edgeId: number; atMin?: number }
   | {
       op: 'addRoad';
       id: number;
@@ -211,6 +218,9 @@ export type Edit =
       speedKmh: number;
       bidirectional: boolean;
     };
+
+/** The edits §9.3 applies without a reset -- everything but `addRoad`. */
+export type HotEdit = Exclude<Edit, { op: 'addRoad' }>;
 
 /** §9. One JSON describes a run completely; it is also the permalink and the preset. */
 export type Scenario = {

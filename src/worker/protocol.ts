@@ -14,7 +14,8 @@ export type MainToWorker =
   | { type: 'reset' }
   | { type: 'edit'; edits: Edit[] }
   | { type: 'recycle'; n: Float32Array }
-  | { type: 'probe'; edgeId: number };
+  | { type: 'probe'; edgeId: number }
+  | { type: 'names'; edgeIds: number[] };
 
 export type ReadyMessage = {
   type: 'ready';
@@ -59,7 +60,11 @@ export type WorkerToMain =
       storage: number;
       ttSec: number;
       load: number;
+      /** 0xFFFFFFFF when the road has no opposite direction: §9.3 cannot contraflow it. */
+      twin: number;
+      blocked: boolean;
     }
+  | { type: 'names'; names: Record<number, string> }
   | { type: 'error'; where: string; message: string };
 
 /**

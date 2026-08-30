@@ -1,0 +1,16 @@
+{
+  "id": "paradise",
+  "name": "Paradise, CA",
+  "blurb": "26 500 жителей, четыре дороги наружу. 8 ноября 2018 года по ним уходили от Camp Fire.",
+  "pbf": "data/raw/norcal-latest.osm.pbf",
+  "bbox": [39.7254, -121.6557, 39.8015, -121.5645],
+  "center": [39.7596, -121.6219],
+  "zoom": 12,
+  "population": 26500,
+  "populationSource": "NIST TN 2252 §10.4.2 (население Paradise до Camp Fire, ноябрь 2018)",
+  "carlessShare": null,
+  "carlessSource": null,
+  "popMode": "roadlength",
+  "exits": ["Skyway", "Clark Road", "Neal Road", "Pentz Road"],
+  "smallCity": true
+}

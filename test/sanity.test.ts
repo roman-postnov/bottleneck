@@ -3,25 +3,16 @@
 // in the test name and argued in a comment rather than quietly relaxed.
 
 import { describe, it, expect } from 'vitest';
-import { createSim, tick, applyEdits, metrics, updateFrameStats, snapshot } from '../src/core/sim.ts';
+import { createSim, tick, applyEdits, metrics, snapshot } from '../src/core/sim.ts';
 import { nodeTransfer } from '../src/core/nodeModel.ts';
 import { maxFlow } from '../src/core/maxflow.ts';
 import { classOf, FLAG } from '../src/core/city.ts';
 import { capVehS, CLASS_CODE } from '../src/core/params.ts';
 import { createRng } from '../src/core/rng.ts';
-import { loadFixture, massInSystem, params, publicCity, tinyCity } from './helpers.ts';
+import { loadFixture, massInSystem, params, publicCity, run, tinyCity } from './helpers.ts';
 import type { SimState } from '../src/core/types.ts';
 
 const HOUR = 3600;
-
-function run(s: SimState, untilSec: number, opts: { frameEvery?: number } = {}): SimState {
-  const frameEvery = opts.frameEvery ?? 0;
-  while (s.t < untilSec && s.evacuated < s.totalVeh - 1e-6) {
-    tick(s);
-    if (frameEvery && s.t % frameEvery === 0) updateFrameStats(s);
-  }
-  return s;
-}
 
 const exitEdgesOf = (c: { E: number; flags: Uint8Array }): number[] =>
   [...Array(c.E).keys()].filter((e) => c.flags[e] & FLAG.EXIT_EDGE);

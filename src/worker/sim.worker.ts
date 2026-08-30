@@ -59,11 +59,9 @@ function configure(next: Scenario): void {
   if (!city) throw new Error('configure before init');
   scenario = next;
   const params = resolveParams(next);
-  const s = createSim(city, params);
-  const hot = next.edits.filter((e) => e.op !== 'addRoad');
-  if (hot.length > 0) applyEdits(s, hot);
+  const s = createSim(city, params, next.edits);
 
-  const mf = maxFlow(city, params, s.blocked);
+  const mf = maxFlow(city, params, s.blocked, s.lanes);
   s.maxFlowVehH = mf.valueVehH;
   sim = s;
 
@@ -190,10 +188,16 @@ function step(): void {
 
   const t0 = performance.now();
   let ticks = 0;
+  const cursorBefore = s.scheduleCursor;
   while (ticks < want && !finished(s)) {
     tick(s);
     ticks++;
     if (performance.now() - t0 >= SLICE_MS) break;
+  }
+  // A scheduled closure changes the ceiling the run is measured against (§11), and the panel
+  // would otherwise keep quoting the max-flow of a road that is no longer there.
+  if (s.scheduleCursor !== cursorBefore && city) {
+    s.maxFlowVehH = maxFlow(city, s.params, s.blocked, s.lanes).valueVehH;
   }
   // Whatever did not fit in the slice is dropped, not carried: the hardware is the limit
   // and the UI shows the acceleration actually achieved (§1.1).
@@ -279,7 +283,7 @@ ctx.addEventListener('message', (ev) => {
       case 'edit':
         if (sim) {
           applyEdits(sim, msg.edits);
-          if (city) sim.maxFlowVehH = maxFlow(city, sim.params, sim.blocked).valueVehH;
+          if (city) sim.maxFlowVehH = maxFlow(city, sim.params, sim.blocked, sim.lanes).valueVehH;
           emitFrame(0, 0, true);
         }
         break;
@@ -287,6 +291,23 @@ ctx.addEventListener('message', (ev) => {
       case 'recycle':
         if (city && msg.n.length === city.E) pool.push(msg.n);
         break;
+
+      case 'names': {
+        // Deferred like `configure`: the names of a preset's edits are asked for in the same
+        // breath as the scenario, and the city is still being fetched then.
+        const ids = msg.edgeIds;
+        void cityReady?.then(() => {
+          const s = sim;
+          if (!s || !city) return;
+          const names: Record<number, string> = {};
+          for (const id of ids) {
+            const e = s.indexOfEdgeId.get(id);
+            if (e !== undefined) names[id] = city.nameOf(e);
+          }
+          post({ type: 'names', names });
+        });
+        break;
+      }
 
       case 'probe': {
         const s = sim;
@@ -303,6 +324,8 @@ ctx.addEventListener('message', (ev) => {
           storage: s.storage[e],
           ttSec: s.ttSec[e],
           load: s.n[e] / s.storage[e],
+          twin: city.twin[e],
+          blocked: s.blocked[e] === 1,
         });
         break;
       }

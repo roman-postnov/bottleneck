@@ -4,7 +4,7 @@
 
 import { SimClient } from './simClient.ts';
 import { getState, setState } from './state.ts';
-import { defaultScenario, normalizeScenario } from '../core/scenario.ts';
+import { decodeScenario, defaultScenario, encodeScenario, normalizeScenario } from '../core/scenario.ts';
 import type { CityMeta, Edit, Scenario } from '../core/types.ts';
 import type { FrameMessage, ReadyMessage } from '../worker/protocol.ts';
 
@@ -88,11 +88,24 @@ client.on('curve', (msg) => {
 });
 
 client.on('done', (msg) => {
-  setState({ status: 'done', metrics: msg.metrics });
+  const s = getState();
+  const clean = s.scenario !== null && s.scenario.edits.length === 0;
+  setState({
+    status: 'done',
+    metrics: msg.metrics,
+    baselineT90: clean ? msg.metrics.t90Sec : s.baselineT90,
+  });
+});
+
+client.on('names', (msg) => {
+  setState({ edgeNames: { ...getState().edgeNames, ...msg.names } });
 });
 
 client.on('probeResult', (msg) => {
-  setState({ probe: msg });
+  setState({
+    probe: msg,
+    edgeNames: { ...getState().edgeNames, [msg.edgeId]: msg.name },
+  });
 });
 
 client.on('error', (msg) => {
@@ -106,7 +119,29 @@ export async function boot(): Promise<void> {
     if (!res.ok) throw new Error(`cities/index.json: ${res.status}`);
     const cities = (await res.json()) as CityMeta[];
     setState({ cities });
-    const first = new URLSearchParams(location.search).get('city') ?? cities[0]?.id;
+    const query = new URLSearchParams(location.search);
+
+    // ?s= carries the whole run (§9). It wins over ?city=: a scenario names its own city, and
+    // opening a shared link on a different graph would silently show something else.
+    const packed = query.get('s');
+    if (packed) {
+      const scenario = await decodeScenario(packed);
+      await selectCity(scenario.city);
+      updateScenario(() => scenario);
+      return;
+    }
+
+    const preset = query.get('preset');
+    if (preset) {
+      const r = await fetch(`scenarios/${preset}.json`);
+      if (!r.ok) throw new Error(`scenarios/${preset}.json: ${r.status}`);
+      const scenario = normalizeScenario((await r.json()) as Scenario);
+      await selectCity(scenario.city);
+      updateScenario(() => scenario);
+      return;
+    }
+
+    const first = query.get('city') ?? cities[0]?.id;
     if (first) await selectCity(first);
   } catch (e) {
     setState({ status: 'error', error: e instanceof Error ? e.message : String(e) });
@@ -116,7 +151,7 @@ export async function boot(): Promise<void> {
 export async function selectCity(id: string): Promise<void> {
   const meta = getState().cities.find((c) => c.id === id);
   if (!meta) return;
-  setState({ status: 'loading', cityId: id, probe: null, showCut: false });
+  setState({ status: 'loading', cityId: id, probe: null, showCut: false, baselineT90: null, link: null });
   lastReady = null;
   // Absolute: a module worker resolves a relative fetch against its own script URL,
   // not against the page, so `cities/x.bin` would land under /src/worker/.
@@ -131,9 +166,20 @@ export function updateScenario(patch: (s: Scenario) => Scenario): void {
   const current = getState().scenario;
   if (!current) return;
   const next = normalizeScenario(patch(current));
-  setState({ scenario: next, status: 'ready', curve: [], metrics: null });
+  setState({ scenario: next, status: 'ready', curve: [], metrics: null, link: null });
   client.configure(next);
   client.speed(getState().speedX);
+  askNames(next);
+}
+
+/** A permalink carries edge ids and nothing else (§9.2), so a scenario opened from a link
+ *  would list "road #3842" where the whole point is that it is Pentz Road. */
+function askNames(s: Scenario): void {
+  const known = getState().edgeNames;
+  const want = s.edits
+    .map((e) => (e.op === 'addRoad' ? -1 : e.edgeId))
+    .filter((id) => id >= 0 && known[id] === undefined);
+  if (want.length > 0) client.names([...new Set(want)]);
 }
 
 export function play(): void {
@@ -156,7 +202,45 @@ export function setSpeed(x: number): void {
   client.speed(x);
 }
 
-export function applyEdit(edits: Edit[]): void {
-  setState({ curve: getState().curve, metrics: null });
-  client.edit(edits);
+/**
+ * An intervention made while the run is going (§9.1). It is applied hot AND written into the
+ * scenario stamped with the minute it happened, which is the only reason the permalink
+ * reproduces what was on screen rather than a run where the road closed at zero.
+ *
+ * `configure` is deliberately not called: it would restart the evacuation under the user.
+ */
+export function applyEdit(edit: Edit): void {
+  const s = getState();
+  if (!s.scenario) return;
+  const stamped: Edit =
+    edit.op === 'addRoad' ? edit : { ...edit, atMin: Math.round(getState().clock.t / 60) };
+  setState({
+    scenario: { ...s.scenario, edits: [...s.scenario.edits, stamped] },
+    metrics: null,
+    link: null,
+  });
+  client.edit([stamped]);
+}
+
+/** Removing an edit cannot be undone hot -- the network has to be rebuilt, and the run with
+ *  it. The UI says so before calling this. */
+export function removeEdit(from: number, to: number = from): void {
+  const s = getState();
+  if (!s.scenario) return;
+  const edits = s.scenario.edits.filter((_, i) => i < from || i > to);
+  updateScenario((sc) => ({ ...sc, edits }));
+}
+
+export async function copyLink(): Promise<void> {
+  const s = getState();
+  if (!s.scenario) return;
+  const url = new URL(location.href);
+  url.search = `?s=${await encodeScenario(s.scenario)}`;
+  const link = url.toString();
+  setState({ link });
+  try {
+    await navigator.clipboard.writeText(link);
+  } catch {
+    // Clipboard needs a permission the page may not have; the link is shown either way.
+  }
 }

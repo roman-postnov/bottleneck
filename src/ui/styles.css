@@ -101,3 +101,17 @@ select { width: 100%; }
 footer { margin-top: auto; font-size: 11px; }
 
 .maplibregl-ctrl-attrib { font-size: 10px; }
+
+.interventions { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; }
+.interventions h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0; font-weight: 500; }
+.interventions .target { font-size: 13px; }
+.interventions .row { display: flex; gap: 6px; align-items: center; }
+.interventions button[disabled] { opacity: 0.4; cursor: not-allowed; }
+.edits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.edits li { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.edits .drop { border: none; background: none; color: var(--muted); cursor: pointer; padding: 0 4px; }
+.edits .drop:hover { color: #e05252; }
+
+.delta { font-size: 12px; font-variant-numeric: tabular-nums; }
+.delta.worse { color: #e08a52; }
+.delta.better { color: #4fae7f; }

@@ -8,6 +8,7 @@ import {
   classCode,
   clipWays,
   direction,
+  exitPredicate,
   lanes,
   polylineLengthM,
   pruneToLargestComponent,
@@ -61,6 +62,25 @@ describe('§4 step 4: tags to numbers', () => {
     expect(direction({ highway: 'residential', junction: 'roundabout' })).toBe('forward');
     // An explicit tag wins over the roundabout convention.
     expect(direction({ highway: 'residential', junction: 'roundabout', oneway: 'no' })).toBe('both');
+  });
+});
+
+describe('§4 step 7: which ways may reach past the border', () => {
+  it('by class, when exits are auto', () => {
+    const p = exitPredicate('auto');
+    expect(p({ highway: 'motorway' })).toBe(true);
+    expect(p({ highway: 'secondary', name: 'Skyway' })).toBe(false);
+  });
+
+  // Paradise: no road in town is above `secondary`, and two of the four evacuation arteries
+  // are `tertiary`. By class the town would have no exits at all.
+  it('by name or ref, whatever the class', () => {
+    const p = exitPredicate(['Skyway', 'CA 70']);
+    expect(p({ highway: 'secondary', name: 'Skyway' })).toBe(true);
+    expect(p({ highway: 'tertiary', name: 'skyway' })).toBe(true);
+    expect(p({ highway: 'primary', ref: 'CA 70' })).toBe(true);
+    expect(p({ highway: 'motorway', name: 'Nunneley Road' })).toBe(false);
+    expect(p({ highway: 'residential' })).toBe(false);
   });
 });
 

@@ -16,6 +16,7 @@ export class SimClient {
     curve: [],
     done: [],
     probeResult: [],
+    names: [],
     error: [],
   };
 
@@ -74,6 +75,9 @@ export class SimClient {
   }
   probe(edgeId: number): void {
     this.send({ type: 'probe', edgeId });
+  }
+  names(edgeIds: number[]): void {
+    this.send({ type: 'names', edgeIds });
   }
   private recycle(frame: FrameMessage): void {
     this.send({ type: 'recycle', n: frame.n }, [frame.n.buffer]);

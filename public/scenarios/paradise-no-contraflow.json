@@ -1,0 +1,46 @@
+{
+  "v": 1,
+  "city": "paradise",
+  "seed": 20261101,
+  "demand": {
+    "occupancy": 2.2,
+    "participation": 1,
+    "mobilizationHalfMin": 90
+  },
+  "supply": {
+    "satFlowPerLane": 1800,
+    "jamSpacingM": 7.5,
+    "speedFactor": 1,
+    "srcInjectLanes": 1
+  },
+  "routing": {
+    "mode": "static",
+    "reoptSec": 300,
+    "logitTheta": 0.15,
+    "splitEpsilon": 0.01,
+    "ttSmoothing": 0.3
+  },
+  "edits": [
+    {
+      "op": "close",
+      "edgeId": 3842,
+      "atMin": 45
+    },
+    {
+      "op": "close",
+      "edgeId": 1589,
+      "atMin": 120
+    },
+    {
+      "op": "close",
+      "edgeId": 2798,
+      "atMin": 270
+    },
+    {
+      "op": "lanes",
+      "edgeId": 1589,
+      "lanes": 1,
+      "atMin": 300
+    }
+  ]
+}

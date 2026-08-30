@@ -5,7 +5,8 @@
 import { readFileSync } from 'node:fs';
 import { parseCity } from '../src/core/city.ts';
 import { normalizeScenario, resolveParams } from '../src/core/scenario.ts';
-import type { City, LatLng, Params, Scenario, SimState } from '../src/core/types.ts';
+import { tick, updateFrameStats } from '../src/core/sim.ts';
+import type { City, Edit, LatLng, Params, Scenario, SimState } from '../src/core/types.ts';
 
 export function fixtureBytes(name: string): ArrayBuffer {
   const b = readFileSync(new URL(`./fixtures/${name}.bin`, import.meta.url));
@@ -27,10 +28,26 @@ type ScenarioPatch = {
   routing?: Partial<Scenario['routing']>;
   seed?: number;
   exits?: number[];
+  edits?: Edit[];
 };
 
+export function scenario(city: string, patch: ScenarioPatch = {}): Scenario {
+  return normalizeScenario({ city, ...patch });
+}
+
 export function params(city: string, patch: ScenarioPatch = {}): Params {
-  return resolveParams(normalizeScenario({ city, ...patch }));
+  return resolveParams(scenario(city, patch));
+}
+
+/** Ticks until the clock or the evacuation runs out. Shared so that every check, sanity and
+ *  validation alike, drives the core exactly the same way. */
+export function run(s: SimState, untilSec: number, opts: { frameEvery?: number } = {}): SimState {
+  const frameEvery = opts.frameEvery ?? 0;
+  while (s.t < untilSec && s.evacuated < s.totalVeh - 1e-6) {
+    tick(s);
+    if (frameEvery && s.t % frameEvery === 0) updateFrameStats(s);
+  }
+  return s;
 }
 
 /** notDeparted + enRoute + evacuated, which §7.1 requires to equal totalVeh every tick. */

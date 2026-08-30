@@ -37,7 +37,8 @@ export type CityConfig = {
   carlessShare: number | null;
   carlessSource: string | null;
   popMode: 'roadlength' | 'raster';
-  exits: 'auto';
+  /** 'auto' = by class; a list of names/refs = by road name (§4 step 7, v1.4). */
+  exits: 'auto' | string[];
   smallCity: boolean;
 };
 
@@ -63,6 +64,25 @@ export type Graph = { nodes: LatLng[]; arcs: Arc[]; exits: Set<number> };
 
 const RESIDENTIAL = new Set([CLASS_CODE.residential, CLASS_CODE.unclassified]);
 const EXIT_CLASSES = new Set(['motorway', 'trunk', 'primary']);
+
+/**
+ * Which ways are allowed to reach past the border and become exit candidates (§4 step 7).
+ *
+ * `auto` goes by class. On Paradise that finds nothing: no road in town is classed above
+ * `secondary`, and Neal Road and Pentz Road -- two of the four arteries the evacuation
+ * actually used -- are tagged `tertiary`. Dropping the threshold to `tertiary` instead would
+ * make an exit of every residential stub crossing the frame, so the road's name is what
+ * separates an artery from a dead end, and it comes from the report rather than a guess.
+ */
+export function exitPredicate(exits: 'auto' | string[]): (t: Tags) => boolean {
+  if (exits === 'auto') return (t) => EXIT_CLASSES.has(t.highway ?? '');
+  const wanted = new Set(exits.map((n) => n.toLowerCase()));
+  return (t) => {
+    const name = t.name?.toLowerCase();
+    const ref = t.ref?.toLowerCase();
+    return (name !== undefined && wanted.has(name)) || (ref !== undefined && wanted.has(ref));
+  };
+}
 
 const LINK_PARENT: Record<string, string> = {
   motorway_link: 'motorway',
@@ -112,18 +132,65 @@ export function direction(tags: Tags): Direction {
   return 'both';
 }
 
-export function lanes(tags: Tags, side: 'forward' | 'backward'): number {
+/** The per-direction lane count OSM actually states, or null when it states nothing. */
+export function taggedLanes(tags: Tags, side: 'forward' | 'backward'): number | null {
   const explicit = tags[side === 'forward' ? 'lanes:forward' : 'lanes:backward'];
   const oneway = direction(tags) !== 'both';
   const total = explicit ?? tags.lanes;
-  if (total !== undefined) {
-    const n = Number.parseFloat(total);
-    if (Number.isFinite(n)) {
-      const per = explicit !== undefined ? n : n / (oneway ? 1 : 2);
-      return Math.max(1, Math.floor(per));
+  if (total === undefined) return null;
+  const n = Number.parseFloat(total);
+  if (!Number.isFinite(n)) return null;
+  const per = explicit !== undefined ? n : n / (oneway ? 1 : 2);
+  return Math.max(1, Math.floor(per));
+}
+
+export function lanes(tags: Tags, side: 'forward' | 'backward'): number {
+  return (
+    taggedLanes(tags, side) ?? HIGHWAY_CLASSES[classCode(tags.highway ?? 'residential')].lanes
+  );
+}
+
+const roadKey = (t: Tags): string | null =>
+  t.name === undefined ? null : `${t.name}\u0000${t.highway ?? ''}`;
+
+/**
+ * Fills the lane count OSM left off a segment from the other segments of the same road
+ * (§4 step 4, v1.4). A street does not change width where the mapper stopped typing.
+ *
+ * Skyway in Paradise is the case that forced this: its undivided blocks carry `lanes=4`, so
+ * two per direction, while the divided carriageways that actually leave town carry no lane
+ * tag at all and fell through to the class default of one. The model then read two lanes on
+ * one block of a street and one on the next. Nothing is invented here -- the number comes
+ * from OSM's own tags on that same road, an explicit tag is never overridden, and a road
+ * that states nothing anywhere still gets the class default.
+ *
+ * The median, not the maximum: one mistagged segment should not widen a whole road.
+ */
+export function inferLanes(runs: Run[]): (tags: Tags, side: 'forward' | 'backward') => number {
+  const seen = new Map<string, number[]>();
+  for (const r of runs) {
+    const key = roadKey(r.tags);
+    if (key === null) continue;
+    for (const side of ['forward', 'backward'] as const) {
+      const n = taggedLanes(r.tags, side);
+      if (n === null) continue;
+      const list = seen.get(key);
+      if (list) list.push(n);
+      else seen.set(key, [n]);
     }
   }
-  return HIGHWAY_CLASSES[classCode(tags.highway ?? 'residential')].lanes;
+  const median = new Map<string, number>();
+  for (const [key, list] of seen) {
+    list.sort((a, b) => a - b);
+    median.set(key, list[(list.length - 1) >> 1]);
+  }
+  return (tags, side) => {
+    const tagged = taggedLanes(tags, side);
+    if (tagged !== null) return tagged;
+    const key = roadKey(tags);
+    const filled = key === null ? undefined : median.get(key);
+    return filled ?? HIGHWAY_CLASSES[classCode(tags.highway ?? 'residential')].lanes;
+  };
 }
 
 // ---------------------------------------------------------------- §4 steps 1-2: clip, collapse
@@ -140,12 +207,13 @@ export function clipWays(
   ways: Extract['ways'],
   coord: Map<number, LatLng>,
   bbox: Bbox,
+  isExitWay: (t: Tags) => boolean = exitPredicate('auto'),
 ): { runs: Run[]; stubs: Set<number> } {
   const runs: Run[] = [];
   const stubs = new Set<number>();
   for (const w of ways) {
     const refs = w.r.filter((r) => coord.has(r));
-    const isExitCls = EXIT_CLASSES.has(w.t.highway ?? '');
+    const isExitCls = isExitWay(w.t);
     const flags = refs.map((r) => inside(bbox, coord.get(r)!));
     let i = 0;
     while (i < refs.length) {
@@ -203,6 +271,7 @@ export function buildArcs(
   coord: Map<number, LatLng>,
   vertices: Set<number>,
   stubs: Set<number> = new Set(),
+  laneOf: (tags: Tags, side: 'forward' | 'backward') => number = lanes,
 ): Graph {
   const index = new Map<number, number>();
   const nodes: LatLng[] = [];
@@ -240,25 +309,25 @@ export function buildArcs(
 
       if (dir === 'both') {
         const f = arcs.length;
-        arcs.push({ ...base, from: a, to: b, lanes: lanes(run.tags, 'forward'), oneway: false, geom });
+        arcs.push({ ...base, from: a, to: b, lanes: laneOf(run.tags, 'forward'), oneway: false, geom });
         arcs.push({
           ...base,
           from: b,
           to: a,
-          lanes: lanes(run.tags, 'backward'),
+          lanes: laneOf(run.tags, 'backward'),
           oneway: false,
           geom: [...geom].reverse(),
         });
         arcs[f].twin = f + 1;
         arcs[f + 1].twin = f;
       } else if (dir === 'forward') {
-        arcs.push({ ...base, from: a, to: b, lanes: lanes(run.tags, 'forward'), oneway: true, geom });
+        arcs.push({ ...base, from: a, to: b, lanes: laneOf(run.tags, 'forward'), oneway: true, geom });
       } else {
         arcs.push({
           ...base,
           from: b,
           to: a,
-          lanes: lanes(run.tags, 'backward'),
+          lanes: laneOf(run.tags, 'backward'),
           oneway: true,
           geom: [...geom].reverse(),
         });
@@ -498,9 +567,9 @@ function main(cityId: string): void {
     coord.set(ex.nodes.id[i], [ex.nodes.lat[i] / 1e7, ex.nodes.lon[i] / 1e7]);
   }
 
-  const { runs, stubs } = clipWays(ex.ways, coord, cfg.bbox);
+  const { runs, stubs } = clipWays(ex.ways, coord, cfg.bbox, exitPredicate(cfg.exits));
   const vertices = vertexNodes(runs, stubs);
-  let g = buildArcs(runs, coord, vertices, stubs);
+  let g = buildArcs(runs, coord, vertices, stubs, inferLanes(runs));
   g = splitLongArcs(g);
   const pruned = pruneToLargestComponent(g);
   const pop = assignPopulation(pruned.graph, cfg.population);
@@ -527,7 +596,9 @@ function main(cityId: string): void {
     cfg.carlessSource
       ? `Безмашинные: ${cfg.carlessSource}.`
       : 'Безмашинные: данных переписи нет, записаны нули (§4 шаг 9).',
-    `Выезды найдены автоматически по пересечению bbox дорогами класса motorway/trunk/primary.`,
+    cfg.exits === 'auto'
+      ? 'Выезды найдены автоматически по пересечению bbox дорогами класса motorway/trunk/primary.'
+      : `Выезды заданы поимённо (§4 шаг 7): ${cfg.exits.join(', ')}.`,
     `Тарьян (§3.3.8) отбросил ${pruned.droppedNodes} вершин и ${(pruned.droppedResidentialM / 1000).toFixed(1)} км жилых улиц, не связанных с городом.`,
   ];
 

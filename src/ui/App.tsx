@@ -2,6 +2,7 @@ import { MapView } from './MapView.tsx';
 import { Controls } from './Controls.tsx';
 import { EvacCurve } from './EvacCurve.tsx';
 import { MetricsPanel } from './MetricsPanel.tsx';
+import { Interventions } from './Interventions.tsx';
 import { useStore } from '../main/state.ts';
 
 export function App(): React.ReactElement {
@@ -21,6 +22,7 @@ export function App(): React.ReactElement {
         <Controls />
         <EvacCurve />
         <MetricsPanel />
+        <Interventions />
         <footer className="muted">
           {status === 'loading' ? 'loading…' : status}
           {' · '}

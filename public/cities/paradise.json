@@ -1,0 +1,22 @@
+{
+  "id": "paradise",
+  "name": "Paradise, CA",
+  "blurb": "26 500 жителей, четыре дороги наружу. 8 ноября 2018 года по ним уходили от Camp Fire.",
+  "center": [
+    39.7596,
+    -121.6219
+  ],
+  "zoom": 12,
+  "bytes": 201484,
+  "nodes": 1969,
+  "edges": 4332,
+  "population": 26500,
+  "carlessPeople": 0,
+  "exits": 4,
+  "zones": [
+    ""
+  ],
+  "unassignedPop": 0,
+  "smallCity": true,
+  "notes": "Население: NIST TN 2252 §10.4.2 (население Paradise до Camp Fire, ноябрь 2018); режим roadlength (§4 шаг 8). Безмашинные: данных переписи нет, записаны нули (§4 шаг 9). Выезды заданы поимённо (§4 шаг 7): Skyway, Clark Road, Neal Road, Pentz Road. Тарьян (§3.3.8) отбросил 53 вершин и 6.1 км жилых улиц, не связанных с городом."
+}
