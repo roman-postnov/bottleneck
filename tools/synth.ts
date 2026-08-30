@@ -9,49 +9,82 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
-  MAGIC, FORMAT_VERSION, HEADER_BYTES, SECTION_SLOTS, SECTION, FLAG, NO_TWIN, GEOM_SCALE,
-} from '../src/core/city.js';
-import { CLASS_CODE, HIGHWAY_CLASSES } from '../src/core/params.js';
+  MAGIC,
+  FORMAT_VERSION,
+  HEADER_BYTES,
+  SECTION_SLOTS,
+  SECTION,
+  FLAG,
+  NO_TWIN,
+  GEOM_SCALE,
+} from '../src/core/city.ts';
+import { CLASS_CODE, HIGHWAY_CLASSES } from '../src/core/params.ts';
+import type { CityMeta, LatLng } from '../src/core/types.ts';
 
 const EARTH_R = 6371008.8;
 const D2R = Math.PI / 180;
 
-function haversineM(a, b) {
-  const dLat = (b[0] - a[0]) * D2R, dLon = (b[1] - a[1]) * D2R;
-  const h = Math.sin(dLat / 2) ** 2
-    + Math.cos(a[0] * D2R) * Math.cos(b[0] * D2R) * Math.sin(dLon / 2) ** 2;
+function haversineM(a: LatLng, b: LatLng): number {
+  const dLat = (b[0] - a[0]) * D2R;
+  const dLon = (b[1] - a[1]) * D2R;
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(a[0] * D2R) * Math.cos(b[0] * D2R) * Math.sin(dLon / 2) ** 2;
   return 2 * EARTH_R * Math.asin(Math.sqrt(h));
 }
 
-const metresToDegLat = (m) => m / (EARTH_R * D2R);
-const metresToDegLon = (m, lat) => m / (EARTH_R * D2R * Math.cos(lat * D2R));
+const metresToDegLat = (m: number): number => m / (EARTH_R * D2R);
+const metresToDegLon = (m: number, lat: number): number => m / (EARTH_R * D2R * Math.cos(lat * D2R));
+
+type EdgeRec = {
+  from: number;
+  to: number;
+  cls: number;
+  lanes: number;
+  speedKmh: number;
+  name: string;
+  bridge: boolean;
+  oneway: boolean;
+  exitEdge: boolean;
+  geom: LatLng[];
+  twinTmp: number;
+};
+
+type EdgeOpts = Partial<Omit<EdgeRec, 'from' | 'to' | 'twinTmp'>>;
+
+type SourceRec = { node: number; pop: number; noCar: number; zone: number };
 
 class Builder {
-  constructor() {
-    this.nodes = [];
-    this.edges = [];
-    this.sources = [];
-    this.exitNodes = [];
-    this.names = [''];
-    this.nameIds = new Map([['', 0]]);
+  nodes: LatLng[] = [];
+  edges: EdgeRec[] = [];
+  sources: SourceRec[] = [];
+  exitNodes: number[] = [];
+  names: string[] = [''];
+  nameIds = new Map<string, number>([['', 0]]);
+
+  node(lat: number, lon: number): number {
+    this.nodes.push([lat, lon]);
+    return this.nodes.length - 1;
   }
 
-  node(lat, lon) { this.nodes.push([lat, lon]); return this.nodes.length - 1; }
-
-  nameId(s) {
-    if (!this.nameIds.has(s)) {
+  nameId(s: string): number {
+    let id = this.nameIds.get(s);
+    if (id === undefined) {
       if (this.names.length > 65535) throw new Error('name table overflow (limit 65,536, §3.2)');
-      this.nameIds.set(s, this.names.length);
+      id = this.names.length;
+      this.nameIds.set(s, id);
       this.names.push(s);
     }
-    return this.nameIds.get(s);
+    return id;
   }
 
-  edge(from, to, o = {}) {
+  edge(from: number, to: number, o: EdgeOpts = {}): number {
     const cls = o.cls ?? CLASS_CODE.residential;
     const d = HIGHWAY_CLASSES[cls];
     this.edges.push({
-      from, to, cls,
+      from,
+      to,
+      cls,
       lanes: o.lanes ?? d.lanes,
       speedKmh: o.speedKmh ?? d.speedKmh,
       name: o.name ?? '',
@@ -65,7 +98,7 @@ class Builder {
   }
 
   /** Two opposing arcs with independent capacity (§4 step 3). */
-  pair(a, b, o = {}) {
+  pair(a: number, b: number, o: EdgeOpts = {}): [number, number] {
     const fwd = this.edge(a, b, o);
     const rev = this.edge(b, a, { ...o, geom: [...(o.geom ?? [])].reverse() });
     this.edges[fwd].twinTmp = rev;
@@ -73,18 +106,26 @@ class Builder {
     return [fwd, rev];
   }
 
-  source(node, pop, noCar = 0, zone = 0) { this.sources.push({ node, pop, noCar, zone }); }
-  exit(node) { this.exitNodes.push(node); }
+  source(node: number, pop: number, noCar = 0, zone = 0): void {
+    this.sources.push({ node, pop, noCar, zone });
+  }
 
-  serialize() {
+  exit(node: number): void {
+    this.exitNodes.push(node);
+  }
+
+  serialize(): ArrayBuffer {
     const V = this.nodes.length;
     const E = this.edges.length;
 
     // CSR requires edges grouped by their tail node.
-    const order = [...this.edges.keys()].sort((x, y) =>
-      this.edges[x].from - this.edges[y].from || x - y);
+    const order = [...this.edges.keys()].sort(
+      (x, y) => this.edges[x].from - this.edges[y].from || x - y,
+    );
     const newIdx = new Int32Array(E);
-    order.forEach((old, i) => { newIdx[old] = i; });
+    order.forEach((old, i) => {
+      newIdx[old] = i;
+    });
     const ed = order.map((i) => this.edges[i]);
 
     const csrOff = new Uint32Array(V + 1);
@@ -101,7 +142,7 @@ class Builder {
     const twin = new Uint32Array(E);
     const nameId = new Uint16Array(E);
     const geomOff = new Uint32Array(E + 1);
-    const geomPts = [];
+    const geomPts: number[] = [];
 
     for (let i = 0; i < E; i++) {
       const e = ed[i];
@@ -120,15 +161,19 @@ class Builder {
 
       // Deltas accumulate quantised, so the decoder lands on exactly these points.
       const src = this.nodes[e.from];
-      let pLat = Math.round(src[0] * 1e7), pLon = Math.round(src[1] * 1e7);
-      const poly = [src];
+      let pLat = Math.round(src[0] * 1e7);
+      let pLon = Math.round(src[1] * 1e7);
+      const poly: LatLng[] = [src];
       geomOff[i] = geomPts.length / 2;
       for (const p of e.geom) {
-        const tLat = Math.round(p[0] * 1e7), tLon = Math.round(p[1] * 1e7);
+        const tLat = Math.round(p[0] * 1e7);
+        const tLon = Math.round(p[1] * 1e7);
         const dLat = Math.round((tLat - pLat) / GEOM_SCALE);
         const dLon = Math.round((tLon - pLon) / GEOM_SCALE);
         if (Math.abs(dLat) > 32767 || Math.abs(dLon) > 32767) {
-          throw new Error(`edge ${i}: geometry delta overflows Int16, densification required (§3.2)`);
+          throw new Error(
+            `edge ${i}: geometry delta overflows Int16, densification required (§3.2)`,
+          );
         }
         geomPts.push(dLat, dLon);
         pLat += dLat * GEOM_SCALE;
@@ -150,7 +195,10 @@ class Builder {
     const srcNoCar = new Float32Array(S);
     const srcZone = new Uint8Array(S);
     this.sources.forEach((s, i) => {
-      srcNode[i] = s.node; srcPop[i] = s.pop; srcNoCar[i] = s.noCar; srcZone[i] = s.zone;
+      srcNode[i] = s.node;
+      srcPop[i] = s.pop;
+      srcNoCar[i] = s.noCar;
+      srcZone[i] = s.zone;
     });
 
     const exitNode = Uint32Array.from(this.exitNodes);
@@ -159,15 +207,22 @@ class Builder {
     const blob = new TextEncoder().encode(this.names.join('\0') + '\0');
     const NS = blob.length;
 
-    const latI = new Int32Array(V), lonI = new Int32Array(V);
-    let minLat = Infinity, minLon = Infinity, maxLat = -Infinity, maxLon = -Infinity;
+    const latI = new Int32Array(V);
+    const lonI = new Int32Array(V);
+    let minLat = Infinity;
+    let minLon = Infinity;
+    let maxLat = -Infinity;
+    let maxLon = -Infinity;
     this.nodes.forEach(([la, lo], i) => {
-      latI[i] = Math.round(la * 1e7); lonI[i] = Math.round(lo * 1e7);
-      minLat = Math.min(minLat, latI[i]); maxLat = Math.max(maxLat, latI[i]);
-      minLon = Math.min(minLon, lonI[i]); maxLon = Math.max(maxLon, lonI[i]);
+      latI[i] = Math.round(la * 1e7);
+      lonI[i] = Math.round(lo * 1e7);
+      minLat = Math.min(minLat, latI[i]);
+      maxLat = Math.max(maxLat, latI[i]);
+      minLon = Math.min(minLon, lonI[i]);
+      maxLon = Math.max(maxLon, lonI[i]);
     });
 
-    const parts = [];
+    const parts: ArrayBufferView[] = [];
     parts[SECTION.NODE_LAT] = latI;
     parts[SECTION.NODE_LON] = lonI;
     parts[SECTION.CSR_OFF] = csrOff;
@@ -187,7 +242,7 @@ class Builder {
     parts[SECTION.NAME_ID] = nameId;
     parts[SECTION.NAME_BLOB] = blob;
 
-    const align4 = (n) => (n + 3) & ~3;
+    const align4 = (n: number): number => (n + 3) & ~3;
     const offsets = new Uint32Array(SECTION_SLOTS);
     let cursor = HEADER_BYTES;
     for (let s = 0; s < parts.length; s++) {
@@ -206,8 +261,10 @@ class Builder {
     dv.setUint32(20, X, true);
     dv.setUint32(24, G, true);
     dv.setUint32(28, NS, true);
-    dv.setInt32(32, minLat, true); dv.setInt32(36, minLon, true);
-    dv.setInt32(40, maxLat, true); dv.setInt32(44, maxLon, true);
+    dv.setInt32(32, minLat, true);
+    dv.setInt32(36, minLon, true);
+    dv.setInt32(40, maxLat, true);
+    dv.setInt32(44, maxLon, true);
     for (let i = 0; i < SECTION_SLOTS; i++) dv.setUint32(48 + i * 4, offsets[i], true);
 
     const out = new Uint8Array(buf);
@@ -221,10 +278,24 @@ class Builder {
 
 // ---------------------------------------------------------------- topologies
 
-const ORIGIN = { grid: [37.7600, -122.4400], line: [39.7596, -121.6219], single: [37.0, -122.0], island: [47.5700, -122.2200] };
+const ORIGIN: Record<string, LatLng> = {
+  grid: [37.76, -122.44],
+  line: [39.7596, -121.6219],
+  single: [37.0, -122.0],
+  island: [47.57, -122.22],
+};
+
+type Built = { b: Builder; name: string; zones: string[] };
+type Opts = Record<string, number>;
 
 /** An exit is a separate node beyond the boundary, reached by one one-way arc. */
-function attachExit(b, fromNode, bearingLat, bearingLon, name) {
+function attachExit(
+  b: Builder,
+  fromNode: number,
+  bearingLat: number,
+  bearingLon: number,
+  name: string,
+): number {
   const [la, lo] = b.nodes[fromNode];
   const x = b.node(la + bearingLat, lo + bearingLon);
   b.edge(fromNode, x, { cls: CLASS_CODE.primary, lanes: 2, name, exitEdge: true, oneway: true });
@@ -232,30 +303,48 @@ function attachExit(b, fromNode, bearingLat, bearingLon, name) {
   return x;
 }
 
-function buildGrid({ n = 20, pop = 20000, exits = 2, spacingM = 200 }) {
+function buildGrid({ n = 20, pop = 20000, exits = 2, spacingM = 200 }: Opts): Built {
   const b = new Builder();
   const [lat0, lon0] = ORIGIN.grid;
-  const dLat = metresToDegLat(spacingM), dLon = metresToDegLon(spacingM, lat0);
-  const id = (i, j) => i * n + j;
+  const dLat = metresToDegLat(spacingM);
+  const dLon = metresToDegLon(spacingM, lat0);
+  const id = (i: number, j: number): number => i * n + j;
   for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) b.node(lat0 + i * dLat, lon0 + j * dLon);
 
   // Bend a third of the edges so the geometry section is non-empty and actually exercised.
-  const bend = (a, c, k) => {
+  const bend = (a: number, c: number, k: number): LatLng[] => {
     if (k % 3 !== 0) return [];
-    const [la1, lo1] = b.nodes[a], [la2, lo2] = b.nodes[c];
-    const mLat = (la1 + la2) / 2, mLon = (lo1 + lo2) / 2;
+    const [la1, lo1] = b.nodes[a];
+    const [la2, lo2] = b.nodes[c];
+    const mLat = (la1 + la2) / 2;
+    const mLon = (lo1 + lo2) / 2;
     const off = metresToDegLat(15) * (k % 2 ? 1 : -1);
     return [[mLat + (la1 === la2 ? off : 0), mLon + (la1 === la2 ? 0 : off)]];
   };
 
   for (let i = 0; i < n; i++) {
     for (let j = 0; j < n; j++) {
-      if (j + 1 < n) b.pair(id(i, j), id(i, j + 1), { name: `E-W ${i}`, geom: bend(id(i, j), id(i, j + 1), i + j) });
-      if (i + 1 < n) b.pair(id(i, j), id(i + 1, j), { name: `N-S ${j}`, geom: bend(id(i, j), id(i + 1, j), i + j) });
+      if (j + 1 < n) {
+        b.pair(id(i, j), id(i, j + 1), {
+          name: `E-W ${i}`,
+          geom: bend(id(i, j), id(i, j + 1), i + j),
+        });
+      }
+      if (i + 1 < n) {
+        b.pair(id(i, j), id(i + 1, j), {
+          name: `N-S ${j}`,
+          geom: bend(id(i, j), id(i + 1, j), i + j),
+        });
+      }
     }
   }
 
-  const corners = [[0, 0, -1, -1], [n - 1, n - 1, 1, 1], [0, n - 1, -1, 1], [n - 1, 0, 1, -1]];
+  const corners = [
+    [0, 0, -1, -1],
+    [n - 1, n - 1, 1, 1],
+    [0, n - 1, -1, 1],
+    [n - 1, 0, 1, -1],
+  ];
   for (let k = 0; k < Math.min(exits, 4); k++) {
     const [i, j, si, sj] = corners[k];
     attachExit(b, id(i, j), si * dLat * 3, sj * dLon * 3, `Exit ${k + 1}`);
@@ -271,7 +360,7 @@ function buildGrid({ n = 20, pop = 20000, exits = 2, spacingM = 200 }) {
   return { b, name: `Synthetic grid ${n}x${n}`, zones: ['', 'NW', 'NE', 'SW', 'SE'] };
 }
 
-function buildLine({ n = 10, pop = 5000, spacingM = 400 }) {
+function buildLine({ n = 10, pop = 5000, spacingM = 400 }: Opts): Built {
   const b = new Builder();
   const [lat0, lon0] = ORIGIN.line;
   const dLon = metresToDegLon(spacingM, lat0);
@@ -282,24 +371,31 @@ function buildLine({ n = 10, pop = 5000, spacingM = 400 }) {
   return { b, name: `Synthetic chain of ${n}`, zones: [''] };
 }
 
-function buildSingle({ lanes = 2, pop = 1e6, lenM = 1000 }) {
+function buildSingle({ lanes = 2, pop = 1e6, lenM = 1000 }: Opts): Built {
   const b = new Builder();
   const [lat0, lon0] = ORIGIN.single;
   const dLon = metresToDegLon(lenM, lat0);
   const s = b.node(lat0, lon0);
   const x = b.node(lat0, lon0 + dLon);
   // motorway has class factor 1.0, so capacity is exactly lanes x 1800 veh/h (sanity check 3).
-  b.edge(s, x, { cls: CLASS_CODE.motorway, lanes, name: 'The Only Road', exitEdge: true, oneway: true });
+  b.edge(s, x, {
+    cls: CLASS_CODE.motorway,
+    lanes,
+    name: 'The Only Road',
+    exitEdge: true,
+    oneway: true,
+  });
   b.exit(x);
   b.source(s, pop, 0, 0);
   return { b, name: `Single edge, ${lanes} lanes`, zones: [''] };
 }
 
-function buildIsland({ n = 8, pop = 25000, spacingM = 250, bridgeM = 2000 }) {
+function buildIsland({ n = 8, pop = 25000, spacingM = 250, bridgeM = 2000 }: Opts): Built {
   const b = new Builder();
   const [lat0, lon0] = ORIGIN.island;
-  const dLat = metresToDegLat(spacingM), dLon = metresToDegLon(spacingM, lat0);
-  const id = (i, j) => i * n + j;
+  const dLat = metresToDegLat(spacingM);
+  const dLon = metresToDegLon(spacingM, lat0);
+  const id = (i: number, j: number): number => i * n + j;
   for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) b.node(lat0 + i * dLat, lon0 + j * dLon);
   for (let i = 0; i < n; i++) {
     for (let j = 0; j < n; j++) {
@@ -318,11 +414,16 @@ function buildIsland({ n = 8, pop = 25000, spacingM = 250, bridgeM = 2000 }) {
   return { b, name: `Island ${n}x${n}, one bridge`, zones: [''] };
 }
 
-const KINDS = { grid: buildGrid, line: buildLine, single: buildSingle, island: buildIsland };
+const KINDS: Record<string, (o: Opts) => Built> = {
+  grid: buildGrid,
+  line: buildLine,
+  single: buildSingle,
+  island: buildIsland,
+};
 
 // ---------------------------------------------------------------- CLI
 
-function emit(kind, opts, outPath) {
+function emit(kind: string, opts: Opts, outPath: string): { buf: ArrayBuffer; meta: CityMeta } {
   const { b, name, zones } = KINDS[kind](opts);
   const buf = b.serialize();
   mkdirSync(dirname(outPath), { recursive: true });
@@ -330,55 +431,77 @@ function emit(kind, opts, outPath) {
 
   const pop = b.sources.reduce((s, x) => s + x.pop, 0);
   const noCar = b.sources.reduce((s, x) => s + x.noCar, 0);
-  const lats = b.nodes.map((p) => p[0]), lons = b.nodes.map((p) => p[1]);
-  const meta = {
+  const lats = b.nodes.map((p) => p[0]);
+  const lons = b.nodes.map((p) => p[1]);
+  const meta: CityMeta = {
     id: outPath.replace(/^.*\//, '').replace(/\.bin$/, ''),
-    name, blurb: `Synthetic fixture (${kind}). Not real geography.`,
-    center: [(Math.min(...lats) + Math.max(...lats)) / 2, (Math.min(...lons) + Math.max(...lons)) / 2],
+    name,
+    blurb: `Synthetic fixture (${kind}). Not real geography.`,
+    center: [
+      (Math.min(...lats) + Math.max(...lats)) / 2,
+      (Math.min(...lons) + Math.max(...lons)) / 2,
+    ],
     zoom: 13,
     bytes: buf.byteLength,
-    nodes: b.nodes.length, edges: b.edges.length,
-    population: Math.round(pop), carlessPeople: Math.round(noCar),
-    exits: b.exitNodes.length, zones,
-    unassignedPop: 0, smallCity: true,
-    notes: `synth.mjs --kind ${kind} ${JSON.stringify(opts)}`,
+    nodes: b.nodes.length,
+    edges: b.edges.length,
+    population: Math.round(pop),
+    carlessPeople: Math.round(noCar),
+    exits: b.exitNodes.length,
+    zones,
+    unassignedPop: 0,
+    smallCity: true,
+    notes: `synth.ts --kind ${kind} ${JSON.stringify(opts)}`,
   };
   writeFileSync(outPath.replace(/\.bin$/, '.json'), JSON.stringify(meta, null, 2) + '\n');
   return { buf, meta };
 }
 
-const FIXTURES = [
-  ['grid',   { n: 20, pop: 20000, exits: 2 }, 'test/fixtures/grid20.bin'],
-  ['line',   { n: 10, pop: 5000 },            'test/fixtures/line10.bin'],
-  ['single', { lanes: 2, pop: 1e6 },          'test/fixtures/single.bin'],
-  ['island', { n: 8, pop: 25000 },            'test/fixtures/island8.bin'],
+const FIXTURES: Array<[string, Opts, string]> = [
+  ['grid', { n: 20, pop: 20000, exits: 2 }, 'test/fixtures/grid20.bin'],
+  ['line', { n: 10, pop: 5000 }, 'test/fixtures/line10.bin'],
+  ['single', { lanes: 2, pop: 1e6 }, 'test/fixtures/single.bin'],
+  ['island', { n: 8, pop: 25000 }, 'test/fixtures/island8.bin'],
 ];
 
-function parseArgs(argv) {
-  const a = {};
+function parseArgs(argv: string[]): Record<string, string | number | boolean> {
+  const a: Record<string, string | number | boolean> = {};
   for (let i = 0; i < argv.length; i++) {
     if (!argv[i].startsWith('--')) continue;
     const k = argv[i].slice(2);
     const v = argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[++i] : 'true';
-    a[k] = v === 'true' ? true : (Number.isNaN(Number(v)) ? v : Number(v));
+    a[k] = v === 'true' ? true : Number.isNaN(Number(v)) ? v : Number(v);
   }
   return a;
 }
 
 const args = parseArgs(process.argv.slice(2));
 if (args.all) {
+  const catalogue: CityMeta[] = [];
   for (const [kind, opts, out] of FIXTURES) {
     const { meta } = emit(kind, opts, out);
-    console.log(`${out.padEnd(28)} V=${String(meta.nodes).padStart(5)} E=${String(meta.edges).padStart(6)} ${String(meta.bytes).padStart(8)} B`);
+    // The app serves cities from public/; the tests read the very same bytes from test/fixtures.
+    emit(kind, opts, `public/cities/${meta.id}.bin`);
+    catalogue.push(meta);
+    console.log(
+      `${out.padEnd(28)} V=${String(meta.nodes).padStart(5)} E=${String(meta.edges).padStart(6)} ${String(meta.bytes).padStart(8)} B`,
+    );
   }
-} else if (args.kind) {
+  writeFileSync('public/cities/index.json', JSON.stringify(catalogue, null, 2) + '\n');
+} else if (typeof args.kind === 'string') {
   const { kind, out, ...rest } = args;
-  if (!KINDS[kind]) throw new Error(`unknown --kind ${kind}; available: ${Object.keys(KINDS).join(', ')}`);
-  const { meta } = emit(kind, rest, out || `test/fixtures/${kind}.bin`);
-  console.log(`${out || kind}: V=${meta.nodes} E=${meta.edges} ${meta.bytes} B`);
+  if (!KINDS[kind as string]) {
+    throw new Error(`unknown --kind ${kind}; available: ${Object.keys(KINDS).join(', ')}`);
+  }
+  const { meta } = emit(
+    kind as string,
+    rest as Opts,
+    typeof out === 'string' ? out : `test/fixtures/${kind}.bin`,
+  );
+  console.log(`${typeof out === 'string' ? out : kind}: V=${meta.nodes} E=${meta.edges} ${meta.bytes} B`);
 } else {
   console.log(`Usage:
-  node tools/synth.mjs --all
-  node tools/synth.mjs --kind grid --n 20 --pop 20000 --exits 2 --out test/fixtures/grid20.bin
+  node tools/synth.ts --all
+  node tools/synth.ts --kind grid --n 20 --pop 20000 --exits 2 --out test/fixtures/grid20.bin
   available --kind: ${Object.keys(KINDS).join(', ')}`);
 }

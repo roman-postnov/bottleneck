@@ -6,12 +6,27 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "fixtures": "node tools/synth.mjs --all",
+    "fixtures": "node tools/synth.ts --all",
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run test",
+    "preview": "vite preview"
   },
   "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "typescript": "5.9.3",
     "vite": "^7.1.5",
     "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@deck.gl/core": "^9.3.10",
+    "@deck.gl/layers": "^9.3.10",
+    "deck.gl": "^9.3.10",
+    "maplibre-gl": "^6.5.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   }
 }

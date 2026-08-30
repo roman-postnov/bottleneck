@@ -5,19 +5,26 @@ import { readFileSync } from 'node:fs';
 import {
   parseCity, validateCity, edgePolyline, stronglyConnectedComponents,
   classOf, NO_TWIN, FLAG, MAX_EDGE_LEN_M, FORMAT_VERSION, GEOM_SCALE,
-} from '../src/core/city.js';
-import { capVehS, ttSec, storageVeh, CLASS_CODE, HIGHWAY_CLASSES } from '../src/core/params.js';
+} from '../src/core/city.ts';
+import { capVehS, ttSec, storageVeh, CLASS_CODE, HIGHWAY_CLASSES } from '../src/core/params.ts';
+import type { LatLng } from '../src/core/types.ts';
 
 const FIXTURES = ['grid20', 'line10', 'single', 'island8'];
 
-function bytes(name) {
+function bytes(name: string): ArrayBuffer {
   const b = readFileSync(new URL(`./fixtures/${name}.bin`, import.meta.url));
-  return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);
+  return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
 }
-const load = (name) => parseCity(bytes(name));
+const load = (name: string) => parseCity(bytes(name));
+
+/** An index the fixture is required to contain; a miss is a broken fixture, not a soft skip. */
+function must(i: number | undefined, what: string): number {
+  if (i === undefined) throw new Error(`fixture has no ${what}`);
+  return i;
+}
 
 /** Perpendicular offset of point p from segment a-b, in metres (local planar projection). */
-function offsetFromLineM(a, b, p) {
+function offsetFromLineM(a: LatLng, b: LatLng, p: LatLng): number {
   const kLat = 111320, kLon = 111320 * Math.cos(a[0] * Math.PI / 180);
   const ax = 0, ay = 0;
   const bx = (b[1] - a[1]) * kLon, by = (b[0] - a[0]) * kLat;
@@ -27,7 +34,7 @@ function offsetFromLineM(a, b, p) {
 }
 
 const EARTH_R = 6371008.8, D2R = Math.PI / 180;
-function haversineM(a, b) {
+function haversineM(a: LatLng, b: LatLng): number {
   const dLat = (b[0] - a[0]) * D2R, dLon = (b[1] - a[1]) * D2R;
   const h = Math.sin(dLat / 2) ** 2
     + Math.cos(a[0] * D2R) * Math.cos(b[0] * D2R) * Math.sin(dLon / 2) ** 2;
@@ -156,8 +163,10 @@ describe('geometry', () => {
 
   it('a bent edge is longer than the straight line between its nodes', () => {
     const c = load('grid20');
-    const bent = [...Array(c.E).keys()].find((e) => c.geomOff[e + 1] > c.geomOff[e]);
-    expect(bent).toBeDefined();
+    const bent = must(
+      [...Array(c.E).keys()].find((e) => c.geomOff[e + 1] > c.geomOff[e]),
+      'bent edge',
+    );
     const straight = haversineM(
       [c.lat[c.edgeFrom[bent]] / 1e7, c.lon[c.edgeFrom[bent]] / 1e7],
       [c.lat[c.edgeTo[bent]] / 1e7, c.lon[c.edgeTo[bent]] / 1e7],
@@ -181,7 +190,7 @@ describe('geometry', () => {
 
   it('deltas decode in units of 1e-6 degrees', () => {
     const c = load('grid20');
-    const e = [...Array(c.E).keys()].find((i) => c.geomOff[i + 1] > c.geomOff[i]);
+    const e = must([...Array(c.E).keys()].find((i) => c.geomOff[i + 1] > c.geomOff[i]), 'bent edge');
     const k = c.geomOff[e];
     const expected = c.lat[c.edgeFrom[e]] + c.geomPts[k * 2] * GEOM_SCALE;
     expect(Math.round(edgePolyline(c, e)[1][0] * 1e7)).toBe(expected);
@@ -191,7 +200,7 @@ describe('geometry', () => {
 describe('road names', () => {
   it('id 0 is the empty string, and named edges read back', () => {
     const c = load('island8');
-    const bridge = [...Array(c.E).keys()].find((e) => c.flags[e] & FLAG.BRIDGE);
+    const bridge = must([...Array(c.E).keys()].find((e) => c.flags[e] & FLAG.BRIDGE), 'bridge');
     expect(c.nameOf(bridge)).toBe('Bridge');
     const unnamed = [...Array(c.E).keys()].find((e) => c.nameId[e] === 0);
     if (unnamed !== undefined) expect(c.nameOf(unnamed)).toBe('');
@@ -264,7 +273,7 @@ describe('validator catches corruption', () => {
 
   it('invariant 5: non-mutual twin', () => {
     const c = load('line10');
-    const e = [...Array(c.E).keys()].find((i) => c.twin[i] !== NO_TWIN);
+    const e = must([...Array(c.E).keys()].find((i) => c.twin[i] !== NO_TWIN), 'twinned edge');
     c.twin[e] = (e + 3) % c.E;
     expect(validateCity(c).join()).toMatch(/5:/);
   });

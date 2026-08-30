@@ -1,19 +1,35 @@
 // The city.bin format and its loader. CONTRACTS.md §3, §5.
-// Format constants live here and are imported by the writer (tools/synth.mjs):
+// Format constants live here and are imported by the writer (tools/synth.ts):
 // two independent statements of the layout drift apart silently.
 
-export const MAGIC = 0x4b434e42;        // "BNCK" little-endian
+import type { City, CityMeta, EdgeIdx } from './types.ts';
+
+export const MAGIC = 0x4b434e42; // "BNCK" little-endian
 export const FORMAT_VERSION = 2;
 export const HEADER_BYTES = 128;
-export const SECTION_SLOTS = 20;        // 18 used, 2 reserved for additive growth
+export const SECTION_SLOTS = 20; // 18 used, 2 reserved for additive growth
 export const NO_TWIN = 0xffffffff;
 
 export const SECTION = {
-  NODE_LAT: 0, NODE_LON: 1, CSR_OFF: 2, EDGE_TO: 3, EDGE_LEN: 4,
-  EDGE_LANES: 5, EDGE_SPEED: 6, EDGE_FLAGS: 7, EDGE_TWIN: 8,
-  GEOM_OFF: 9, GEOM_PTS: 10, SRC_NODE: 11, SRC_POP: 12, SRC_NOCAR: 13,
-  SRC_ZONE: 14, EXIT: 15, NAME_ID: 16, NAME_BLOB: 17,
-};
+  NODE_LAT: 0,
+  NODE_LON: 1,
+  CSR_OFF: 2,
+  EDGE_TO: 3,
+  EDGE_LEN: 4,
+  EDGE_LANES: 5,
+  EDGE_SPEED: 6,
+  EDGE_FLAGS: 7,
+  EDGE_TWIN: 8,
+  GEOM_OFF: 9,
+  GEOM_PTS: 10,
+  SRC_NODE: 11,
+  SRC_POP: 12,
+  SRC_NOCAR: 13,
+  SRC_ZONE: 14,
+  EXIT: 15,
+  NAME_ID: 16,
+  NAME_BLOB: 17,
+} as const;
 
 export const FLAG = {
   ONEWAY: 1 << 0,
@@ -23,7 +39,7 @@ export const FLAG = {
   EXIT_EDGE: 1 << 4,
   CLASS_SHIFT: 5,
   CLASS_MASK: 0xe0,
-};
+} as const;
 
 export const MAX_EDGE_LEN_M = 60000;
 
@@ -31,10 +47,14 @@ export const MAX_EDGE_LEN_M = 60000;
 // This is the factor between them; getting it wrong shifts every polyline tenfold, silently.
 export const GEOM_SCALE = 10;
 
-export function classOf(flags) { return (flags & FLAG.CLASS_MASK) >>> FLAG.CLASS_SHIFT; }
+export function classOf(flags: number): number {
+  return (flags & FLAG.CLASS_MASK) >>> FLAG.CLASS_SHIFT;
+}
+
+type TypedArrayCtor<T> = new (buffer: ArrayBuffer, byteOffset: number, length: number) => T;
 
 /** Pure buffer parsing. Touches no network, so it runs in Node and in tests. */
-export function parseCity(buffer, meta = {}) {
+export function parseCity(buffer: ArrayBuffer, meta: CityMeta | Record<string, never> = {}): City {
   const dv = new DataView(buffer);
   if (dv.getUint32(0, true) !== MAGIC) throw new Error('city.bin: bad magic, expected BNCK');
   const version = dv.getUint16(4, true);
@@ -48,21 +68,41 @@ export function parseCity(buffer, meta = {}) {
   const X = dv.getUint32(20, true);
   const G = dv.getUint32(24, true);
   const NS = dv.getUint32(28, true);
-  const bbox = [
-    dv.getInt32(32, true), dv.getInt32(36, true),
-    dv.getInt32(40, true), dv.getInt32(44, true),
+  const bbox: City['bbox'] = [
+    dv.getInt32(32, true),
+    dv.getInt32(36, true),
+    dv.getInt32(40, true),
+    dv.getInt32(44, true),
   ];
 
   const off = new Uint32Array(SECTION_SLOTS);
   for (let i = 0; i < SECTION_SLOTS; i++) off[i] = dv.getUint32(48 + i * 4, true);
-  const at = (s, Type, len) => new Type(buffer, off[s], len);
+  const at = <T>(s: number, Type: TypedArrayCtor<T>, len: number): T =>
+    new Type(buffer, off[s], len);
 
-  const city = {
-    meta, version, bbox, V, E, S, X, G, NS,
+  const csrOff = at(SECTION.CSR_OFF, Uint32Array, V + 1);
+  const edgeTo = at(SECTION.EDGE_TO, Uint32Array, E);
+  const exitNode = at(SECTION.EXIT, Uint32Array, X);
+  const nameId = at(SECTION.NAME_ID, Uint16Array, E);
+  const nameBlob = at(SECTION.NAME_BLOB, Uint8Array, NS);
+
+  const derived = buildDerived(V, E, csrOff, edgeTo, exitNode);
+  const names = buildNameIndex(nameBlob);
+
+  return {
+    meta,
+    version,
+    bbox,
+    V,
+    E,
+    S,
+    X,
+    G,
+    NS,
     lat: at(SECTION.NODE_LAT, Int32Array, V),
     lon: at(SECTION.NODE_LON, Int32Array, V),
-    csrOff: at(SECTION.CSR_OFF, Uint32Array, V + 1),
-    edgeTo: at(SECTION.EDGE_TO, Uint32Array, E),
+    csrOff,
+    edgeTo,
     lenM: at(SECTION.EDGE_LEN, Uint16Array, E),
     lanes: at(SECTION.EDGE_LANES, Uint8Array, E),
     speedKmh: at(SECTION.EDGE_SPEED, Uint8Array, E),
@@ -74,24 +114,32 @@ export function parseCity(buffer, meta = {}) {
     srcPop: at(SECTION.SRC_POP, Float32Array, S),
     srcNoCar: at(SECTION.SRC_NOCAR, Float32Array, S),
     srcZone: at(SECTION.SRC_ZONE, Uint8Array, S),
-    exitNode: at(SECTION.EXIT, Uint32Array, X),
-    nameId: at(SECTION.NAME_ID, Uint16Array, E),
-    nameBlob: at(SECTION.NAME_BLOB, Uint8Array, NS),
+    exitNode,
+    nameId,
+    nameBlob,
+    ...derived,
+    ...names,
   };
-
-  buildDerived(city);
-  attachNames(city);
-  return city;
 }
 
-/** edgeFrom, incoming edges, isExit, degrees. One pass, no per-element objects. */
-export function buildDerived(city) {
-  const { V, E, csrOff, edgeTo, exitNode } = city;
+type Derived = Pick<
+  City,
+  'edgeFrom' | 'inOff' | 'inEdge' | 'isExit' | 'maxOutDeg' | 'maxInDeg'
+>;
 
+/** edgeFrom, incoming edges, isExit, degrees. One pass, no per-element objects. */
+function buildDerived(
+  V: number,
+  E: number,
+  csrOff: Uint32Array,
+  edgeTo: Uint32Array,
+  exitNode: Uint32Array,
+): Derived {
   const edgeFrom = new Uint32Array(E);
   let maxOutDeg = 0;
   for (let v = 0; v < V; v++) {
-    const a = csrOff[v], b = csrOff[v + 1];
+    const a = csrOff[v];
+    const b = csrOff[v + 1];
     if (b - a > maxOutDeg) maxOutDeg = b - a;
     for (let e = a; e < b; e++) edgeFrom[e] = v;
   }
@@ -110,22 +158,23 @@ export function buildDerived(city) {
   const isExit = new Uint8Array(V);
   for (let i = 0; i < exitNode.length; i++) isExit[exitNode[i]] = 1;
 
-  Object.assign(city, { edgeFrom, inOff, inEdge, isExit, maxOutDeg, maxInDeg });
-  return city;
+  return { edgeFrom, inOff, inEdge, isExit, maxOutDeg, maxInDeg };
 }
 
-function attachNames(city) {
+function buildNameIndex(nameBlob: Uint8Array): Pick<City, 'nameStarts' | 'nameOf'> {
   const starts = [0];
-  for (let i = 0; i < city.nameBlob.length; i++) if (city.nameBlob[i] === 0) starts.push(i + 1);
+  for (let i = 0; i < nameBlob.length; i++) if (nameBlob[i] === 0) starts.push(i + 1);
   const dec = new TextDecoder();
-  city.nameStarts = starts;
-  city.nameOf = (e) => {
-    const id = city.nameId[e];
-    if (id === 0 || id >= starts.length) return '';
-    const a = starts[id];
-    let b = a;
-    while (b < city.nameBlob.length && city.nameBlob[b] !== 0) b++;
-    return dec.decode(city.nameBlob.subarray(a, b));
+  return {
+    nameStarts: starts,
+    nameOf(this: City, e: EdgeIdx): string {
+      const id = this.nameId[e];
+      if (id === 0 || id >= starts.length) return '';
+      const a = starts[id];
+      let b = a;
+      while (b < nameBlob.length && nameBlob[b] !== 0) b++;
+      return dec.decode(nameBlob.subarray(a, b));
+    },
   };
 }
 
@@ -134,10 +183,12 @@ function attachNames(city) {
  * Deltas accumulate in quantised units, so the decoder lands exactly where the
  * encoder did, without drift.
  */
-export function edgePolyline(city, e) {
-  const from = city.edgeFrom[e], to = city.edgeTo[e];
-  const pts = [[city.lat[from] / 1e7, city.lon[from] / 1e7]];
-  let lat = city.lat[from], lon = city.lon[from];
+export function edgePolyline(city: City, e: EdgeIdx): Array<[number, number]> {
+  const from = city.edgeFrom[e];
+  const to = city.edgeTo[e];
+  const pts: Array<[number, number]> = [[city.lat[from] / 1e7, city.lon[from] / 1e7]];
+  let lat = city.lat[from];
+  let lon = city.lon[from];
   for (let k = city.geomOff[e]; k < city.geomOff[e + 1]; k++) {
     lat += city.geomPts[k * 2] * GEOM_SCALE;
     lon += city.geomPts[k * 2 + 1] * GEOM_SCALE;
@@ -148,7 +199,9 @@ export function edgePolyline(city, e) {
 }
 
 /** Strongly connected components of G' -- exit out-edges suppressed (§3.3.8). */
-export function stronglyConnectedComponents(city) {
+export function stronglyConnectedComponents(
+  city: Pick<City, 'V' | 'csrOff' | 'edgeTo' | 'isExit'>,
+): { comp: Int32Array; nComp: number } {
   const { V, csrOff, edgeTo, isExit } = city;
   const index = new Int32Array(V).fill(-1);
   const low = new Int32Array(V);
@@ -157,28 +210,42 @@ export function stronglyConnectedComponents(city) {
   const stack = new Int32Array(V);
   const frameV = new Int32Array(V + 1);
   const frameE = new Uint32Array(V + 1);
-  let sp = 0, idx = 0, nComp = 0;
+  let sp = 0;
+  let idx = 0;
+  let nComp = 0;
 
-  const endOf = (v) => (isExit[v] ? csrOff[v] : csrOff[v + 1]);
+  const endOf = (v: number): number => (isExit[v] ? csrOff[v] : csrOff[v + 1]);
 
   for (let s = 0; s < V; s++) {
     if (index[s] !== -1) continue;
     let top = 0;
-    frameV[0] = s; frameE[0] = csrOff[s];
-    index[s] = low[s] = idx++; stack[sp++] = s; onStack[s] = 1;
+    frameV[0] = s;
+    frameE[0] = csrOff[s];
+    index[s] = low[s] = idx++;
+    stack[sp++] = s;
+    onStack[s] = 1;
     while (top >= 0) {
       const v = frameV[top];
       if (frameE[top] < endOf(v)) {
         const w = edgeTo[frameE[top]++];
         if (index[w] === -1) {
-          index[w] = low[w] = idx++; stack[sp++] = w; onStack[w] = 1;
-          top++; frameV[top] = w; frameE[top] = csrOff[w];
+          index[w] = low[w] = idx++;
+          stack[sp++] = w;
+          onStack[w] = 1;
+          top++;
+          frameV[top] = w;
+          frameE[top] = csrOff[w];
         } else if (onStack[w] && index[w] < low[v]) {
           low[v] = index[w];
         }
       } else {
         if (low[v] === index[v]) {
-          for (;;) { const w = stack[--sp]; onStack[w] = 0; comp[w] = nComp; if (w === v) break; }
+          for (;;) {
+            const w = stack[--sp];
+            onStack[w] = 0;
+            comp[w] = nComp;
+            if (w === v) break;
+          }
           nComp++;
         }
         top--;
@@ -190,44 +257,88 @@ export function stronglyConnectedComponents(city) {
 }
 
 /** The invariants of §3.3. An empty array means the file is valid. */
-export function validateCity(city) {
-  const err = [];
+export function validateCity(city: City): string[] {
+  const err: string[] = [];
   const {
-    V, E, G, csrOff, edgeTo, twin, lenM, lanes, speedKmh, geomOff,
-    srcNode, srcPop, srcNoCar, exitNode, isExit,
+    V,
+    E,
+    G,
+    csrOff,
+    edgeTo,
+    twin,
+    lenM,
+    lanes,
+    speedKmh,
+    geomOff,
+    srcNode,
+    srcPop,
+    srcNoCar,
+    exitNode,
+    isExit,
   } = city;
 
-  if (csrOff[0] !== 0 || csrOff[V] !== E) err.push(`1: CSR_OFF[0]=${csrOff[0]}, CSR_OFF[V]=${csrOff[V]}, expected 0 and ${E}`);
+  if (csrOff[0] !== 0 || csrOff[V] !== E) {
+    err.push(`1: CSR_OFF[0]=${csrOff[0]}, CSR_OFF[V]=${csrOff[V]}, expected 0 and ${E}`);
+  }
   for (let v = 0; v < V; v++) {
-    if (csrOff[v + 1] < csrOff[v]) { err.push(`2: CSR_OFF decreases at node ${v}`); break; }
+    if (csrOff[v + 1] < csrOff[v]) {
+      err.push(`2: CSR_OFF decreases at node ${v}`);
+      break;
+    }
   }
   for (let e = 0; e < E; e++) {
-    if (edgeTo[e] >= V) { err.push(`3: EDGE_TO[${e}]=${edgeTo[e]} >= V=${V}`); break; }
+    if (edgeTo[e] >= V) {
+      err.push(`3: EDGE_TO[${e}]=${edgeTo[e]} >= V=${V}`);
+      break;
+    }
   }
-  if (geomOff[0] !== 0 || geomOff[E] !== G) err.push(`4: GEOM_OFF[0]=${geomOff[0]}, GEOM_OFF[E]=${geomOff[E]}, expected 0 and ${G}`);
+  if (geomOff[0] !== 0 || geomOff[E] !== G) {
+    err.push(`4: GEOM_OFF[0]=${geomOff[0]}, GEOM_OFF[E]=${geomOff[E]}, expected 0 and ${G}`);
+  }
   for (let e = 0; e < E; e++) {
     const t = twin[e];
     if (t === NO_TWIN) continue;
-    if (t >= E || twin[t] !== e) { err.push(`5: EDGE_TWIN is not mutual at edge ${e} (twin=${t})`); break; }
+    if (t >= E || twin[t] !== e) {
+      err.push(`5: EDGE_TWIN is not mutual at edge ${e} (twin=${t})`);
+      break;
+    }
   }
   for (let e = 0; e < E; e++) {
-    if (lanes[e] < 1) { err.push(`6: lanes[${e}]=${lanes[e]} < 1`); break; }
+    if (lanes[e] < 1) {
+      err.push(`6: lanes[${e}]=${lanes[e]} < 1`);
+      break;
+    }
   }
   for (let e = 0; e < E; e++) {
-    if (speedKmh[e] < 5) { err.push(`6: speedKmh[${e}]=${speedKmh[e]} < 5`); break; }
+    if (speedKmh[e] < 5) {
+      err.push(`6: speedKmh[${e}]=${speedKmh[e]} < 5`);
+      break;
+    }
   }
   for (let e = 0; e < E; e++) {
-    if (lenM[e] > MAX_EDGE_LEN_M) { err.push(`7: lenM[${e}]=${lenM[e]} > ${MAX_EDGE_LEN_M}, the edge must be split`); break; }
+    if (lenM[e] > MAX_EDGE_LEN_M) {
+      err.push(`7: lenM[${e}]=${lenM[e]} > ${MAX_EDGE_LEN_M}, the edge must be split`);
+      break;
+    }
   }
 
   for (let i = 0; i < srcNode.length; i++) {
-    if (srcNode[i] >= V) { err.push(`11: SRC_NODE[${i}]=${srcNode[i]} >= V`); break; }
+    if (srcNode[i] >= V) {
+      err.push(`11: SRC_NODE[${i}]=${srcNode[i]} >= V`);
+      break;
+    }
   }
   for (let i = 0; i < exitNode.length; i++) {
-    if (exitNode[i] >= V) { err.push(`11: EXIT[${i}]=${exitNode[i]} >= V`); break; }
+    if (exitNode[i] >= V) {
+      err.push(`11: EXIT[${i}]=${exitNode[i]} >= V`);
+      break;
+    }
   }
   for (let i = 0; i < srcNode.length; i++) {
-    if (srcNode[i] < V && isExit[srcNode[i]]) { err.push(`11: node ${srcNode[i]} is both a SRC and an EXIT`); break; }
+    if (srcNode[i] < V && isExit[srcNode[i]]) {
+      err.push(`11: node ${srcNode[i]} is both a SRC and an EXIT`);
+      break;
+    }
   }
 
   let pop = 0;
@@ -246,7 +357,9 @@ export function validateCity(city) {
     const C = comp[srcNode[0]];
     for (let i = 1; i < srcNode.length; i++) {
       if (comp[srcNode[i]] !== C) {
-        err.push(`8: SRC ${srcNode[i]} outside the source component (comp=${comp[srcNode[i]]}, expected ${C})`);
+        err.push(
+          `8: SRC ${srcNode[i]} outside the source component (comp=${comp[srcNode[i]]}, expected ${C})`,
+        );
         break;
       }
     }
@@ -261,7 +374,10 @@ export function validateCity(city) {
       const x = exitNode[i];
       let ok = false;
       for (let k = city.inOff[x]; k < city.inOff[x + 1]; k++) {
-        if (comp[city.edgeFrom[city.inEdge[k]]] === C) { ok = true; break; }
+        if (comp[city.edgeFrom[city.inEdge[k]]] === C) {
+          ok = true;
+          break;
+        }
       }
       if (ok) reachableExits++;
       else err.push(`8: exit ${x} is unreachable from the source component`);
@@ -273,7 +389,10 @@ export function validateCity(city) {
 }
 
 /** Network load. The only I/O in core; the parsing itself lives in parseCity. */
-export async function loadCity(url, meta = {}) {
+export async function loadCity(
+  url: string,
+  meta: CityMeta | Record<string, never> = {},
+): Promise<City> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`city.bin: ${res.status} ${res.statusText} for ${url}`);
   return parseCity(await res.arrayBuffer(), meta);
