@@ -1,7 +1,7 @@
 {
   "id": "keys",
   "name": "Florida Keys, FL",
-  "blurb": "82 874 жителя на цепи островов длиной 180 км. Наружу — одна дорога, US-1.",
+  "blurb": "82,874 residents on a 180 km chain of islands. One road out — US-1.",
   "pbf": "data/raw/florida-latest.osm.pbf",
   "bbox": [
     24.5,
@@ -12,7 +12,7 @@
   "center": [24.93, -81.08],
   "zoom": 9,
   "population": 82874,
-  "populationSource": "U.S. Census Bureau, 2020 Decennial Census, Monroe County, Florida (материковая часть округа — Эверглейдс — практически не заселена, поэтому число относится к цепи)",
+  "populationSource": "U.S. Census Bureau, 2020 Decennial Census, Monroe County, Florida (the mainland part of the county — the Everglades — is essentially uninhabited, so the figure refers to the chain)",
   "carlessShare": null,
   "carlessSource": null,
   "popMode": "roadlength",

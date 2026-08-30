@@ -1,7 +1,7 @@
 {
   "id": "mercer",
   "name": "Mercer Island, WA",
-  "blurb": "25 720 жителей на острове, единственная дорога наружу — I-90 в две стороны.",
+  "blurb": "25,720 residents on an island, the only road out — I-90 in both directions.",
   "pbf": "data/raw/washington-latest.osm.pbf",
   "bbox": [
     47.52,

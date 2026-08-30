@@ -2,7 +2,7 @@
   {
     "id": "paradise",
     "name": "Paradise, CA",
-    "blurb": "26 500 жителей, четыре дороги наружу. 8 ноября 2018 года по ним уходили от Camp Fire.",
+    "blurb": "26,500 residents, four roads out. On November 8, 2018 they were the way out of the Camp Fire.",
     "center": [
       39.7596,
       -121.6219
@@ -19,12 +19,12 @@
     ],
     "unassignedPop": 0,
     "smallCity": true,
-    "notes": "Население: NIST TN 2252 §10.4.2 (население Paradise до Camp Fire, ноябрь 2018); режим roadlength (§4 шаг 8). Безмашинные: данных переписи нет, записаны нули (§4 шаг 9). Выезды заданы поимённо (§4 шаг 7): Skyway, Clark Road, Neal Road, Pentz Road. Тарьян (§3.3.8) отбросил 53 вершин и 6.1 км жилых улиц, не связанных с городом. Зданий OSM привязано к узлам спроса: 1129; отброшено дальше 300 м: 0."
+    "notes": "Population: NIST TN 2252 §10.4.2 (Paradise population before the Camp Fire, November 2018); roadlength mode (§4 step 8). Carless: no census data, zeros recorded (§4 step 9). Exits listed by name (§4 step 7): Skyway, Clark Road, Neal Road, Pentz Road. Tarjan (§3.3.8) dropped 53 vertices and 6.1 km of residential streets not connected to the city. OSM buildings attached to demand nodes: 1129; dropped beyond 300 m: 0."
   },
   {
     "id": "keys",
     "name": "Florida Keys, FL",
-    "blurb": "82 874 жителя на цепи островов длиной 180 км. Наружу — одна дорога, US-1.",
+    "blurb": "82,874 residents on a 180 km chain of islands. One road out — US-1.",
     "center": [
       24.93,
       -81.08
@@ -41,12 +41,12 @@
     ],
     "unassignedPop": 0,
     "smallCity": true,
-    "notes": "Население: U.S. Census Bureau, 2020 Decennial Census, Monroe County, Florida (материковая часть округа — Эверглейдс — практически не заселена, поэтому число относится к цепи); режим roadlength (§4 шаг 8). Безмашинные: данных переписи нет, записаны нули (§4 шаг 9). Выезды заданы поимённо (§4 шаг 7): US 1, Overseas Highway, Card Sound Road. Тарьян (§3.3.8) отбросил 163 вершин и 16.2 км жилых улиц, не связанных с городом. Зданий OSM привязано к узлам спроса: 25514; отброшено дальше 300 м: 1621."
+    "notes": "Population: U.S. Census Bureau, 2020 Decennial Census, Monroe County, Florida (the mainland part of the county — the Everglades — is essentially uninhabited, so the figure refers to the chain); roadlength mode (§4 step 8). Carless: no census data, zeros recorded (§4 step 9). Exits listed by name (§4 step 7): US 1, Overseas Highway, Card Sound Road. Tarjan (§3.3.8) dropped 163 vertices and 16.2 km of residential streets not connected to the city. OSM buildings attached to demand nodes: 25514; dropped beyond 300 m: 1621."
   },
   {
     "id": "sf",
     "name": "San Francisco, CA",
-    "blurb": "830 тысяч жителей на полуострове. Наружу — два моста и два южных коридора.",
+    "blurb": "830 thousand residents on a peninsula. Out — two bridges and two southern corridors.",
     "center": [
       37.7639,
       -122.4361
@@ -63,12 +63,12 @@
     ],
     "unassignedPop": 0,
     "smallCity": false,
-    "notes": "Население: U.S. Census Bureau, ACS 2024 5-year, таблица B01003, San Francisco County (05000US06075); режим roadlength (§4 шаг 8). Безмашинные: ACS 2024 5-year, таблица B08201, San Francisco County: 166 872 человека из 748 449 живущих в домохозяйствах — в домохозяйстве без автомобиля (доля домохозяйств 30.2%, но они меньше средних). Доля одна на весь округ. Выезды найдены автоматически по пересечению bbox дорогами класса motorway/trunk/primary. Тарьян (§3.3.8) отбросил 185 вершин и 7.9 км жилых улиц, не связанных с городом. Зданий OSM привязано к узлам спроса: 163657; отброшено дальше 300 м: 202."
+    "notes": "Population: U.S. Census Bureau, ACS 2024 5-year, table B01003, San Francisco County (05000US06075); roadlength mode (§4 step 8). Carless: ACS 2024 5-year, table B08201, San Francisco County: 166,872 of the 748,449 people living in households are in a household with no car (the household share is 30.2%, but such households are smaller than average). One share for the whole county. Exits found automatically where motorway/trunk/primary roads cross the bbox. Tarjan (§3.3.8) dropped 185 vertices and 7.9 km of residential streets not connected to the city. OSM buildings attached to demand nodes: 163657; dropped beyond 300 m: 202."
   },
   {
     "id": "mercer",
     "name": "Mercer Island, WA",
-    "blurb": "25 720 жителей на острове, единственная дорога наружу — I-90 в две стороны.",
+    "blurb": "25,720 residents on an island, the only road out — I-90 in both directions.",
     "center": [
       47.5707,
       -122.2221
@@ -85,7 +85,7 @@
     ],
     "unassignedPop": 0,
     "smallCity": true,
-    "notes": "Население: U.S. Census Bureau, 2020 Decennial Census, Mercer Island city, WA; режим roadlength (§4 шаг 8). Безмашинные: данных переписи нет, записаны нули (§4 шаг 9). Выезды найдены автоматически по пересечению bbox дорогами класса motorway/trunk/primary. Тарьян (§3.3.8) отбросил 199 вершин и 10.9 км жилых улиц, не связанных с городом. Зданий OSM привязано к узлам спроса: 8380; отброшено дальше 300 м: 1128."
+    "notes": "Population: U.S. Census Bureau, 2020 Decennial Census, Mercer Island city, WA; roadlength mode (§4 step 8). Carless: no census data, zeros recorded (§4 step 9). Exits found automatically where motorway/trunk/primary roads cross the bbox. Tarjan (§3.3.8) dropped 199 vertices and 10.9 km of residential streets not connected to the city. OSM buildings attached to demand nodes: 8380; dropped beyond 300 m: 1128."
   },
   {
     "id": "grid20",

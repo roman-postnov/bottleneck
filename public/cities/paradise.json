@@ -1,7 +1,7 @@
 {
   "id": "paradise",
   "name": "Paradise, CA",
-  "blurb": "26 500 жителей, четыре дороги наружу. 8 ноября 2018 года по ним уходили от Camp Fire.",
+  "blurb": "26,500 residents, four roads out. On November 8, 2018 they were the way out of the Camp Fire.",
   "center": [
     39.7596,
     -121.6219
@@ -18,5 +18,5 @@
   ],
   "unassignedPop": 0,
   "smallCity": true,
-  "notes": "Население: NIST TN 2252 §10.4.2 (население Paradise до Camp Fire, ноябрь 2018); режим roadlength (§4 шаг 8). Безмашинные: данных переписи нет, записаны нули (§4 шаг 9). Выезды заданы поимённо (§4 шаг 7): Skyway, Clark Road, Neal Road, Pentz Road. Тарьян (§3.3.8) отбросил 53 вершин и 6.1 км жилых улиц, не связанных с городом. Зданий OSM привязано к узлам спроса: 1129; отброшено дальше 300 м: 0."
+  "notes": "Population: NIST TN 2252 §10.4.2 (Paradise population before the Camp Fire, November 2018); roadlength mode (§4 step 8). Carless: no census data, zeros recorded (§4 step 9). Exits listed by name (§4 step 7): Skyway, Clark Road, Neal Road, Pentz Road. Tarjan (§3.3.8) dropped 53 vertices and 6.1 km of residential streets not connected to the city. OSM buildings attached to demand nodes: 1129; dropped beyond 300 m: 0."
 }

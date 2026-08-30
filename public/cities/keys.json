@@ -1,7 +1,7 @@
 {
   "id": "keys",
   "name": "Florida Keys, FL",
-  "blurb": "82 874 жителя на цепи островов длиной 180 км. Наружу — одна дорога, US-1.",
+  "blurb": "82,874 residents on a 180 km chain of islands. One road out — US-1.",
   "center": [
     24.93,
     -81.08
@@ -18,5 +18,5 @@
   ],
   "unassignedPop": 0,
   "smallCity": true,
-  "notes": "Население: U.S. Census Bureau, 2020 Decennial Census, Monroe County, Florida (материковая часть округа — Эверглейдс — практически не заселена, поэтому число относится к цепи); режим roadlength (§4 шаг 8). Безмашинные: данных переписи нет, записаны нули (§4 шаг 9). Выезды заданы поимённо (§4 шаг 7): US 1, Overseas Highway, Card Sound Road. Тарьян (§3.3.8) отбросил 163 вершин и 16.2 км жилых улиц, не связанных с городом. Зданий OSM привязано к узлам спроса: 25514; отброшено дальше 300 м: 1621."
+  "notes": "Population: U.S. Census Bureau, 2020 Decennial Census, Monroe County, Florida (the mainland part of the county — the Everglades — is essentially uninhabited, so the figure refers to the chain); roadlength mode (§4 step 8). Carless: no census data, zeros recorded (§4 step 9). Exits listed by name (§4 step 7): US 1, Overseas Highway, Card Sound Road. Tarjan (§3.3.8) dropped 163 vertices and 16.2 km of residential streets not connected to the city. OSM buildings attached to demand nodes: 25514; dropped beyond 300 m: 1621."
 }

@@ -11,4 +11,4 @@ for u in \
   curl -sSL -C - -o "$f" "$u" && echo "[$(date +%H:%M:%S)] ok $f $(du -h "$f" | cut -f1)" \
     || echo "[$(date +%H:%M:%S)] FAIL $f"
 done
-echo "[$(date +%H:%M:%S)] готово"
+echo "[$(date +%H:%M:%S)] done"

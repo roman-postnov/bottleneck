@@ -1,7 +1,7 @@
 {
   "id": "mercer",
   "name": "Mercer Island, WA",
-  "blurb": "25 720 жителей на острове, единственная дорога наружу — I-90 в две стороны.",
+  "blurb": "25,720 residents on an island, the only road out — I-90 in both directions.",
   "center": [
     47.5707,
     -122.2221
@@ -18,5 +18,5 @@
   ],
   "unassignedPop": 0,
   "smallCity": true,
-  "notes": "Население: U.S. Census Bureau, 2020 Decennial Census, Mercer Island city, WA; режим roadlength (§4 шаг 8). Безмашинные: данных переписи нет, записаны нули (§4 шаг 9). Выезды найдены автоматически по пересечению bbox дорогами класса motorway/trunk/primary. Тарьян (§3.3.8) отбросил 199 вершин и 10.9 км жилых улиц, не связанных с городом. Зданий OSM привязано к узлам спроса: 8380; отброшено дальше 300 м: 1128."
+  "notes": "Population: U.S. Census Bureau, 2020 Decennial Census, Mercer Island city, WA; roadlength mode (§4 step 8). Carless: no census data, zeros recorded (§4 step 9). Exits found automatically where motorway/trunk/primary roads cross the bbox. Tarjan (§3.3.8) dropped 199 vertices and 10.9 km of residential streets not connected to the city. OSM buildings attached to demand nodes: 8380; dropped beyond 300 m: 1128."
 }

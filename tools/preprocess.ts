@@ -674,15 +674,15 @@ function main(cityId: string): void {
   }
 
   const notes: string[] = [
-    `Население: ${cfg.populationSource}; режим roadlength (§4 шаг 8).`,
+    `Population: ${cfg.populationSource}; roadlength mode (§4 step 8).`,
     cfg.carlessSource
-      ? `Безмашинные: ${cfg.carlessSource}.`
-      : 'Безмашинные: данных переписи нет, записаны нули (§4 шаг 9).',
+      ? `Carless: ${cfg.carlessSource}.`
+      : 'Carless: no census data, zeros recorded (§4 step 9).',
     cfg.exits === 'auto'
-      ? 'Выезды найдены автоматически по пересечению bbox дорогами класса motorway/trunk/primary.'
-      : `Выезды заданы поимённо (§4 шаг 7): ${cfg.exits.join(', ')}.`,
-    `Тарьян (§3.3.8) отбросил ${pruned.droppedNodes} вершин и ${(pruned.droppedResidentialM / 1000).toFixed(1)} км жилых улиц, не связанных с городом.`,
-    `Зданий OSM привязано к узлам спроса: ${bld.buildings.length}; отброшено дальше ${BUILDING_RADIUS_M} м: ${bld.dropped}.`,
+      ? 'Exits found automatically where motorway/trunk/primary roads cross the bbox.'
+      : `Exits listed by name (§4 step 7): ${cfg.exits.join(', ')}.`,
+    `Tarjan (§3.3.8) dropped ${pruned.droppedNodes} vertices and ${(pruned.droppedResidentialM / 1000).toFixed(1)} km of residential streets not connected to the city.`,
+    `OSM buildings attached to demand nodes: ${bld.buildings.length}; dropped beyond ${BUILDING_RADIUS_M} m: ${bld.dropped}.`,
   ];
 
   const meta: CityMeta = {

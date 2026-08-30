@@ -1,15 +1,15 @@
 {
   "id": "sf",
   "name": "San Francisco, CA",
-  "blurb": "830 тысяч жителей на полуострове. Наружу — два моста и два южных коридора.",
+  "blurb": "830 thousand residents on a peninsula. Out — two bridges and two southern corridors.",
   "pbf": "data/raw/norcal-latest.osm.pbf",
   "bbox": [37.703, -122.517, 37.825, -122.355],
   "center": [37.7639, -122.4361],
   "zoom": 12,
   "population": 830235,
-  "populationSource": "U.S. Census Bureau, ACS 2024 5-year, таблица B01003, San Francisco County (05000US06075)",
+  "populationSource": "U.S. Census Bureau, ACS 2024 5-year, table B01003, San Francisco County (05000US06075)",
   "carlessShare": 0.223,
-  "carlessSource": "ACS 2024 5-year, таблица B08201, San Francisco County: 166 872 человека из 748 449 живущих в домохозяйствах — в домохозяйстве без автомобиля (доля домохозяйств 30.2%, но они меньше средних). Доля одна на весь округ",
+  "carlessSource": "ACS 2024 5-year, table B08201, San Francisco County: 166,872 of the 748,449 people living in households are in a household with no car (the household share is 30.2%, but such households are smaller than average). One share for the whole county",
   "popMode": "roadlength",
   "exits": "auto",
   "smallCity": false
