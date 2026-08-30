@@ -126,7 +126,13 @@ export function buildField(
     for (let i = 0; i < deg; i++) {
       const e = a + i;
       const cTo = cost[edgeTo[e]];
-      const usable = !blocked[e] && cTo !== Infinity;
+      // cTo < cost[v] keeps flow strictly descending towards an exit, so no set of used arcs
+      // can form a cycle. §6.2 does not ask for it, and on 200 m synthetic edges it changes
+      // nothing -- the backward option costs 2*ttSec more and the logit kills it anyway. On
+      // real geometry, where the median edge is 92 m and the 10th percentile is 30 m, the
+      // backward option costs 7 s more, keeps a third of the share, and the two directions of
+      // one street are both told to drive. That deadlocks the network for good.
+      const usable = !blocked[e] && cTo !== Infinity && cTo < cost[v];
       u[i] = usable ? edgeCostSec[e] + cTo : Infinity;
       if (u[i] < best) best = u[i];
     }

@@ -8,6 +8,7 @@ import {
 } from '../src/core/city.ts';
 import { capVehS, ttSec, storageVeh, CLASS_CODE, HIGHWAY_CLASSES } from '../src/core/params.ts';
 import type { LatLng } from '../src/core/types.ts';
+import { publicCity } from './helpers.ts';
 
 const FIXTURES = ['grid20', 'line10', 'single', 'island8'];
 
@@ -308,5 +309,13 @@ describe('validator catches corruption', () => {
     // flagged as an exit, which the validator is required to catch.
     for (let e = 0; e < c.E; e++) if (c.edgeFrom[e] === 0) c.edgeTo[e] = 0;
     expect(validateCity(c).join()).toMatch(/8:/);
+  });
+});
+
+describe('mercer.bin, built by the preprocessor', () => {
+  // The fixtures are written by the same repository that reads them, so they can only prove
+  // the writer and the loader agree. This one comes out of OpenStreetMap.
+  it('passes every invariant of §3.3', () => {
+    expect(validateCity(publicCity('mercer'))).toEqual([]);
   });
 });

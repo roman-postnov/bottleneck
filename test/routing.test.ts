@@ -131,6 +131,32 @@ describe('buildField: split', () => {
     expect(f.split[c.csrOff[0] + 1]).toBe(0);
   });
 
+  // On 200 m synthetic edges the backward option costs 2*ttSec more and the logit kills it on
+  // its own. On real OSM geometry the median edge is 92 m and the tenth percentile is 30 m --
+  // there the backward option is 7 s dearer, keeps a third of the share, and both directions
+  // of one street get told to drive. Mercer Island deadlocked at 8% evacuated because of it.
+  it('never sends a share to a node that is no closer to an exit', () => {
+    const c = tinyCity({
+      V: 3,
+      edges: [
+        { from: 0, to: 1, lanes: 1, cls: 5, lenM: 30, speedKmh: 30 },
+        { from: 1, to: 0, lanes: 1, cls: 5, lenM: 30, speedKmh: 30 },
+        { from: 1, to: 2, lanes: 1, cls: 5, lenM: 30, speedKmh: 30 },
+      ],
+      sources: [{ node: 0, pop: 100 }],
+      exits: [2],
+    });
+    const f = buildField(c, c.exitNode, freeFlowCost(c), new Uint8Array(c.E), 0.15);
+    for (let v = 0; v < c.V; v++) {
+      for (let e = c.csrOff[v]; e < c.csrOff[v + 1]; e++) {
+        if (f.split[e] > 0) expect(f.cost[c.edgeTo[e]]).toBeLessThan(f.cost[v]);
+      }
+    }
+    // The way back from node 1 to node 0 is 60 s of detour on a 30 m street; the plain logit
+    // would hand it exp(-0.15 * 2 * 3.6) = 0.34 of the flow.
+    expect(f.split[c.csrOff[1]]).toBe(0);
+  });
+
   it('reuses the buffer it is handed', () => {
     const c = loadFixture('line10');
     const first = buildField(c, c.exitNode, freeFlowCost(c), new Uint8Array(c.E), 0);

@@ -7,9 +7,9 @@ import { createSim, tick, applyEdits, metrics, updateFrameStats, snapshot } from
 import { nodeTransfer } from '../src/core/nodeModel.ts';
 import { maxFlow } from '../src/core/maxflow.ts';
 import { classOf, FLAG } from '../src/core/city.ts';
-import { capVehS } from '../src/core/params.ts';
+import { capVehS, CLASS_CODE } from '../src/core/params.ts';
 import { createRng } from '../src/core/rng.ts';
-import { loadFixture, massInSystem, params, tinyCity } from './helpers.ts';
+import { loadFixture, massInSystem, params, publicCity, tinyCity } from './helpers.ts';
 import type { SimState } from '../src/core/types.ts';
 
 const HOUR = 3600;
@@ -297,9 +297,34 @@ describe('check 7: doubling the population', () => {
 // -------------------------------------------------------------------- 8
 
 describe('check 8: Mercer Island', () => {
-  // The single most important check in §14, and it needs the OSM preprocessor (§4),
-  // which does not exist yet. Deliberately left visible rather than silently omitted.
-  it.skip('t90 lands between 2 and 8 hours', () => {});
+  // §14 calls this the most important check, and it is the only one tied to the world rather
+  // than to a fixture this repository generated itself. An hour would mean the model lets a
+  // city out through a road that is not there; a day would mean it lets nobody out at all.
+  it('t90 lands between 2 and 8 hours', () => {
+    const c = publicCity('mercer');
+    const s = createSim(c, params('mercer'));
+    run(s, 24 * HOUR);
+    const m = metrics(s);
+    expect(m.stranded).toBeLessThan(1);
+    expect(m.t90Sec).not.toBeNull();
+    expect(m.t90Sec! / HOUR).toBeGreaterThanOrEqual(2);
+    expect(m.t90Sec! / HOUR).toBeLessThanOrEqual(8);
+  });
+
+  // The physical claim of §14.8 is "one highway out". If a residential street ever fed an
+  // exit, cars would be leaving the island through a cul-de-sac and t90 would look wonderful.
+  it('every exit is fed by I-90 or its ramps, never by a side street', () => {
+    const c = publicCity('mercer');
+    expect(c.X).toBeLessThanOrEqual(4);
+    for (let e = 0; e < c.E; e++) {
+      if (!c.isExit[c.edgeTo[e]]) continue;
+      const cls = classOf(c.flags[e]);
+      expect(
+        cls <= CLASS_CODE.primary || cls === CLASS_CODE.link,
+        `${c.nameOf(e) || 'unnamed'} feeds an exit`,
+      ).toBe(true);
+    }
+  });
 });
 
 // -------------------------------------------------------------------- 9

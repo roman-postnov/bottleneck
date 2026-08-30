@@ -11,7 +11,9 @@
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run test",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "extract": "tools/.venv/bin/python tools/osm_extract.py",
+    "preprocess": "node tools/preprocess.ts"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",

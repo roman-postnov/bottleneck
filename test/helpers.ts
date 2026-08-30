@@ -14,6 +14,13 @@ export function fixtureBytes(name: string): ArrayBuffer {
 
 export const loadFixture = (name: string): City => parseCity(fixtureBytes(name));
 
+/** Cities built by the OSM preprocessor (§4) live where the app serves them from, not in
+ *  test/fixtures, which holds only what tools/synth.ts generates. */
+export function publicCity(id: string): City {
+  const b = readFileSync(new URL(`../public/cities/${id}.bin`, import.meta.url));
+  return parseCity(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer);
+}
+
 type ScenarioPatch = {
   demand?: Partial<Scenario['demand']>;
   supply?: Partial<Scenario['supply']>;
