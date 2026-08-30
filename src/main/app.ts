@@ -64,6 +64,9 @@ client.on('frame', (msg) => {
   const now = performance.now();
   // §1.1: the acceleration actually achieved. Measured from simulated time over wall time,
   // which survives the frames the worker skips; counting ticks per frame would not.
+  // This is the readout only. MapView keeps its own estimate because it drives a control loop
+  // and needs it per frame, not throttled to CLOCK_INTERVAL_MS; both settle over 1 s, so the
+  // number on the clock and the speed of the dots agree once the rate is steady.
   if (lastSpeedAt === 0) {
     lastSpeedAt = now;
     lastSpeedT = msg.t;

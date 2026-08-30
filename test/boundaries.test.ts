@@ -41,6 +41,28 @@ describe('§10: determinism', () => {
   });
 });
 
+/**
+ * Globals the platform provides and node does not owe us. `document.`/`window.` alone let
+ * base64 and deflate through unnoticed, which is exactly how src/core/scenario.ts came to
+ * depend on the browser without any rule noticing.
+ */
+const PLATFORM_GLOBALS = [
+  'btoa',
+  'atob',
+  'Blob',
+  'CompressionStream',
+  'DecompressionStream',
+  'Response',
+  'localStorage',
+  'sessionStorage',
+  'requestAnimationFrame',
+  'XMLHttpRequest',
+  'navigator',
+];
+
+/** §9 puts the permalink in core, and base64 and deflate are not in the language. */
+const CODEC = 'src/core/scenario.ts';
+
 describe('§15: src/core is pure', () => {
   it('never touches the DOM', () => {
     for (const f of sources('src/core')) {
@@ -48,6 +70,26 @@ describe('§15: src/core is pure', () => {
       expect(src, f).not.toMatch(/\bdocument\s*\./);
       expect(src, f).not.toMatch(/\bwindow\s*\./);
     }
+  });
+
+  it('reaches for no platform global outside the permalink codec', () => {
+    for (const f of sources('src/core')) {
+      if (f === CODEC) continue;
+      const src = stripComments(read(f));
+      for (const g of PLATFORM_GLOBALS) {
+        expect(src, `${f}: ${g}`).not.toMatch(new RegExp(`\\b${g}\\b`));
+      }
+    }
+  });
+
+  // The exemption has to expire with its cause: once the codec stops needing the platform,
+  // this goes red rather than quietly licensing the next such import.
+  it('the codec exemption is still earned', () => {
+    const src = stripComments(read(CODEC));
+    expect(
+      PLATFORM_GLOBALS.some((g) => new RegExp(`\\b${g}\\b`).test(src)),
+      CODEC,
+    ).toBe(true);
   });
 
   it('the only network call is loadCity, which §5 puts here by name', () => {

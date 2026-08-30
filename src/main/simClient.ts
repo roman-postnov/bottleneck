@@ -87,8 +87,4 @@ export class SimClient {
     // has its own pool in the worker, so it goes back on its own message.
     if (frame.split) this.send({ type: 'recycleField', split: frame.split }, [frame.split.buffer]);
   }
-
-  dispose(): void {
-    this.worker.terminate();
-  }
 }

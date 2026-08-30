@@ -162,6 +162,12 @@
                       "react-dom/**"
                     ],
                     "message": "§15: src/core is pure -- no DOM, no deck.gl, no React."
+                  },
+                  {
+                    // The package bans above say nothing about `../ui/`. Core is a leaf: the
+                    // arrows of §15 all point at it, and none point out of it.
+                    "group": ["**/ui/**", "**/render/**", "**/main/**", "**/worker/**"],
+                    "message": "§15: src/core is a leaf -- it imports no other layer."
                   }
                 ]
               }
@@ -185,6 +191,81 @@
                   {
                     "group": ["**/core/**"],
                     "message": "§15: src/render must not import src/core -- it only knows the frame format."
+                  },
+                  {
+                    "group": ["**/worker/**", "**/ui/**", "**/main/**"],
+                    "message": "§15: src/render is driven by its callers -- it imports no layer above it."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      // §15: src/worker is where core meets postMessage, and that is all it is. It had no
+      // override of its own, so nothing but taste kept deck.gl out of the simulation thread.
+      "includes": ["src/worker/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  { "group": ["**/tools/**"], "message": "§15: nothing under src may import tools." },
+                  {
+                    "group": [
+                      "deck.gl",
+                      "@deck.gl/**",
+                      "maplibre-gl",
+                      "react",
+                      "react/**",
+                      "react-dom",
+                      "react-dom/**"
+                    ],
+                    "message": "§15: src/worker has no DOM, no GPU and no React -- it runs the model."
+                  },
+                  {
+                    "group": ["**/ui/**", "**/main/**", "**/render/**"],
+                    "message": "§15: src/worker talks to the main thread through protocol.ts, never by import."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      // §15: src/shared is a leaf. It exists so the two sides of a §15 boundary can share a
+      // constant instead of copying it, which is only sound while it depends on nothing.
+      "includes": ["src/shared/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/tools/**",
+                      "**/core/**",
+                      "**/worker/**",
+                      "**/render/**",
+                      "**/main/**",
+                      "**/ui/**",
+                      "deck.gl",
+                      "@deck.gl/**",
+                      "maplibre-gl",
+                      "react",
+                      "react/**",
+                      "react-dom",
+                      "react-dom/**"
+                    ],
+                    "message": "§15: src/shared is a leaf -- it imports nothing, or it cannot sit under both sides."
                   }
                 ]
               }

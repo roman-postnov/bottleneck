@@ -5,7 +5,7 @@
 // a whole second away, and the cut has to keep pulsing between frames. The cars advance on
 // SIMULATED time -- see simT below.
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { attachRenderer, client } from '../main/app.ts';
 import { type FollowedCar, setState, useStore } from '../main/state.ts';
 import { carsLayer, edgePaths, followLayer, parkedLayer, stuckLayer, trailLayer } from '../render/carLayers.ts';
@@ -20,19 +20,24 @@ import {
 } from '../render/layers.ts';
 import { BASEMAP, initMap, type MapHandle, type PickHit } from '../render/map.ts';
 import { PALETTE, type Palette } from '../render/palette.ts';
+import { FrameProfiler } from '../render/perf.ts';
+import { SimClock } from '../render/simClock.ts';
 import {
   ARRIVED,
   advance,
   carPosition,
+  carSnapshot,
+  clearDrawn,
   createTracers,
   cumulative,
   dotError,
+  drawnCounts,
   M_PER_DEG_LAT,
   MOVING,
   mPerDegLon,
   onFrame,
   PARKED,
-  parkedSlotAt,
+  pickedSlot,
   replayRoute,
   STUCK,
   setNetwork,
@@ -43,13 +48,6 @@ import {
 } from '../render/tracers.ts';
 
 const PULSE_MS = 1400;
-/** Averaged over wall time, not over a frame count: at a low frame rate a 30-frame window
- *  leaves the readout showing the first seconds of the run for half a minute. */
-const PERF_WINDOW_MS = 500;
-/** How fast the simulated clock estimate follows a change in the achieved acceleration. */
-const RATE_TAU_MS = 1000;
-/** Authority the lag term has over the rate. Bounded so simT can never run backwards. */
-const CATCHUP = 0.25;
 /** The panel is React; it gets the followed car on the same throttle as the clock. */
 const FOLLOW_INTERVAL_MS = 200;
 
@@ -60,16 +58,7 @@ type Scene = {
   n: Float32Array;
   field: TracerField;
   origin: [lon: number, lat: number];
-  /** Simulated seconds, interpolated between frames. */
-  simT: number;
-  /** Simulated seconds per wall second, as actually achieved by the worker. */
-  rate: number;
-  /** Newest frame's t, the anchor the lag term corrects towards. */
-  targetT: number;
-  lastT: number;
-  lastWallMs: number;
-  /** Wall clock of the previous rAF, for the simulated-time step. */
-  lastRafMs: number;
+  clock: SimClock;
   followed: number;
   trail: [number, number][][];
   trailHops: number;
@@ -86,9 +75,13 @@ export function MapView(): React.ReactElement {
   const particles = useStore((s) => s.particles);
   const showParked = useStore((s) => s.showParked);
 
-  // Read inside the animation loop without restarting it on every toggle.
+  // Read inside the animation loop without restarting it on every toggle. Written in a layout
+  // effect rather than during render: a render-phase write is a side effect, and it runs twice
+  // under StrictMode. Layout effects run before the mount effect below reads opts.current.
   const opts = useRef({ showCut, theme, particles, showParked, running });
-  opts.current = { showCut, theme, particles, showParked, running };
+  useLayoutEffect(() => {
+    opts.current = { showCut, theme, particles, showParked, running };
+  });
   const repaint = useRef(true);
 
   useEffect(() => {
@@ -99,8 +92,7 @@ export function MapView(): React.ReactElement {
     handle.onPick((hit) => pick(sceneRef.current, hit));
 
     let raf = 0;
-    let window_: number[][] = [];
-    let windowAt = 0;
+    const profiler = new FrameProfiler();
     let followAt = 0;
 
     const loop = (now: number): void => {
@@ -109,32 +101,32 @@ export function MapView(): React.ReactElement {
       if (!s) return;
       const palette = PALETTE[opts.current.theme];
       const zoom = handle.map.getZoom();
-      const cost = [0, 0, 0, 0];
+      const cost = profiler.begin();
 
       // Paused means paused: the cars stand still. They are the only thing on screen that
       // claims to be a vehicle, and crawling ones on a stopped clock read as a running model.
       // Freezing the rate rather than resetting it makes resume instant instead of a ramp.
-      advanceSimT(s, now, opts.current.running);
+      s.clock.advance(now, opts.current.running);
 
       let t = performance.now();
       if (repaint.current) {
         paint(s.view, s.n, s.storage, palette);
         repaint.current = false;
       }
-      cost[0] = performance.now() - t;
+      cost.paint = performance.now() - t;
 
       const layers: unknown[] = [roadLayer(s.view)];
 
       if (opts.current.particles) {
         t = performance.now();
-        advance(s.field, s.simT);
-        cost[1] = performance.now() - t;
+        advance(s.field, s.clock.simT);
+        cost.step = performance.now() - t;
 
         t = performance.now();
         // The cull is worth having at the zooms where a dot means something; at z12 the whole
         // city is in the window anyway and the bounds test just costs an edge compare.
         writePositions(s.field, viewBounds(handle, s.origin));
-        cost[2] = performance.now() - t;
+        cost.place = performance.now() - t;
 
         if (opts.current.showParked) {
           writeParked(s.field);
@@ -146,7 +138,7 @@ export function MapView(): React.ReactElement {
         layers.push(carsLayer(s.field, palette, s.origin, zoom, now));
         pushTrail(s, layers, palette);
       } else {
-        s.field.count = 0;
+        clearDrawn(s.field);
       }
 
       t = performance.now();
@@ -155,30 +147,20 @@ export function MapView(): React.ReactElement {
         layers.push(cutLayer(s.cut, palette, pulse));
       }
       handle.setLayers(layers as never);
-      cost[3] = performance.now() - t;
+      cost.upload = performance.now() - t;
 
       if (now - followAt >= FOLLOW_INTERVAL_MS) {
         followAt = now;
         publishFollowed(s);
       }
 
-      window_.push(cost);
-      if (windowAt === 0) windowAt = now;
-      if (now - windowAt >= PERF_WINDOW_MS) {
-        windowAt = now;
-        const mean = (i: number): number => window_.reduce((a, c) => a + c[i], 0) / window_.length;
-        const cells = [mean(0), mean(1), mean(2), mean(3)];
-        window_ = [];
+      const mean = profiler.end(cost, now);
+      if (mean) {
         setState({
           perf: {
-            total: cells[0] + cells[1] + cells[2] + cells[3],
-            paint: cells[0],
-            step: cells[1],
-            place: cells[2],
-            upload: cells[3],
-            dots: s.field.count,
-            parked: s.field.parkedCount,
-            stuck: s.field.stuckCount,
+            total: mean.paint + mean.step + mean.place + mean.upload,
+            ...mean,
+            ...drawnCounts(s.field),
             dotErr: dotError(s.field),
             zoom,
           },
@@ -220,12 +202,7 @@ export function MapView(): React.ReactElement {
             edgeLen,
           }),
           origin,
-          simT: 0,
-          rate: 0,
-          targetT: 0,
-          lastT: 0,
-          lastWallMs: 0,
-          lastRafMs: 0,
+          clock: new SimClock(),
           followed: -1,
           trail: [],
           trailHops: -1,
@@ -241,8 +218,8 @@ export function MapView(): React.ReactElement {
         // `n` on every tick, so it has to be a copy rather than the message's array. onFrame on
         // the field copies what it needs for the same reason.
         s.n.set(msg.n);
-        onFrame(s.field, msg.n, msg.outflow, msg.departed, msg.split, s.simT);
-        observeRate(s, msg.t, performance.now());
+        onFrame(s.field, msg.n, msg.outflow, msg.departed, msg.split, s.clock.simT);
+        s.clock.observe(msg.t, performance.now());
         repaint.current = true;
       },
       onNetwork(msg) {
@@ -271,52 +248,6 @@ export function MapView(): React.ReactElement {
   }, [theme]);
 
   return <div className="map" ref={hostRef} />;
-}
-
-/**
- * Measures the acceleration the worker actually achieved, rather than trusting the requested
- * speedX: the worker drops whatever ticks do not fit its 12 ms slice, so at x600 the real rate
- * is lower and cars driven by the request would run ahead of the simulation.
- *
- * Frames with dt = 0 are ignored -- `edit` and `configure` force a frame out at the same t, and
- * dividing by it would crash the estimate to zero.
- */
-function observeRate(s: Scene, t: number, nowMs: number): void {
-  s.targetT = t;
-  const dt = t - s.lastT;
-  const dw = (nowMs - s.lastWallMs) / 1000;
-  if (s.lastWallMs === 0 || dt <= 0 || dw <= 0) {
-    s.lastT = t;
-    s.lastWallMs = nowMs;
-    if (s.rate === 0) s.simT = t;
-    return;
-  }
-  const a = Math.min(1, (dw * 1000) / RATE_TAU_MS);
-  s.rate += (dt / dw - s.rate) * a;
-  s.lastT = t;
-  s.lastWallMs = nowMs;
-}
-
-/**
- * Integrates the simulated clock and corrects the RATE, never the value. Re-anchoring simT to
- * each arriving frame would step it backwards whenever the rate was over-estimated, and with
- * one dot per car a backward step is glaring. Clamping it to the newest frame instead would
- * break x1, where the worker sleeps a whole second and then jumps t by one: the cars would
- * sprint for a fraction of a second and freeze for the rest.
- */
-function advanceSimT(s: Scene, nowMs: number, running: boolean): void {
-  const dtWall = s.lastRafMs === 0 ? 0.016 : Math.min(0.25, (nowMs - s.lastRafMs) / 1000);
-  s.lastRafMs = nowMs;
-  if (!running) return;
-  const err = s.targetT - s.simT;
-  // A big gap means something discontinuous happened -- stepTo, a backgrounded tab, a long GC
-  // pause -- and catching up at 25% would take minutes.
-  if (Math.abs(err) > Math.max(10, s.rate * 4)) {
-    s.simT = s.targetT;
-    return;
-  }
-  const eff = s.rate * (1 + Math.max(-CATCHUP, Math.min(CATCHUP, err / Math.max(1, s.rate))));
-  s.simT += Math.max(0, eff) * dtWall;
 }
 
 function viewBounds(
@@ -348,13 +279,7 @@ function pick(s: Scene | null, hit: PickHit | null): void {
     client.probe(hit.index);
     return;
   }
-  let slot = -1;
-  // The picked index is a place in a compacted buffer, not a car. Only the moving buffer keeps
-  // a slot map; the yards are contiguous ranges, so a parked pick is resolved by walking them,
-  // which is fine for something that happens on a click.
-  if (hit.layerId === 'cars') slot = s.field.slotOf[hit.index];
-  else if (hit.layerId === 'stuck') slot = s.field.stuckList[hit.index];
-  else if (hit.layerId === 'parked') slot = parkedSlotAt(s.field, hit.index);
+  const slot = pickedSlot(s.field, hit.layerId, hit.index);
   if (slot < 0) return;
   s.followed = slot;
   s.trailHops = -1;
@@ -362,14 +287,14 @@ function pick(s: Scene | null, hit: PickHit | null): void {
   // Cars sit on top of the roads and win the pick, so without this the road under them becomes
   // unreachable and §9.3's interventions cannot be aimed anywhere there is traffic. One click
   // now fills both panels: the car it hit, and the road that car is on.
-  const e = s.field.dEdge[slot];
-  if (s.field.dState[slot] === MOVING || s.field.dState[slot] === STUCK) client.probe(e);
+  const car = carSnapshot(s.field, slot);
+  if (car.state === MOVING || car.state === STUCK) client.probe(car.edge);
 }
 
 function pushTrail(s: Scene, layers: unknown[], palette: Palette): void {
   const slot = s.followed;
   if (slot < 0) return;
-  const hops = s.field.dHops[slot];
+  const hops = carSnapshot(s.field, slot).hops;
   // Rebuilt on a hop, not on a frame: the geometry only changes when the car turns.
   if (hops !== s.trailHops) {
     s.trailHops = hops;
@@ -378,7 +303,7 @@ function pushTrail(s: Scene, layers: unknown[], palette: Palette): void {
   }
   if (s.trail.length > 0) layers.push(trailLayer(s.trail, palette));
   const at = carPosition(s.field, slot);
-  if (at) layers.push(followLayer(at, palette, s.origin, s.simT));
+  if (at) layers.push(followLayer(at, palette, s.origin, s.clock.simT));
 }
 
 const STATE_NAME = ['parked', 'moving', 'arrived', 'stuck'] as const;
@@ -387,21 +312,22 @@ function publishFollowed(s: Scene): void {
   const slot = s.followed;
   if (slot < 0) return;
   const f = s.field;
-  const state = f.dState[slot];
-  const departedAt = state === PARKED ? -1 : f.dSpawnT[slot];
-  const arrivedAt = state === ARRIVED ? f.dArriveT[slot] : -1;
+  const car = carSnapshot(f, slot);
+  const state = car.state;
+  const departedAt = state === PARKED ? -1 : car.spawnT;
+  const arrivedAt = state === ARRIVED ? car.arriveT : -1;
   const { edges, truncated } = replayRoute(f, slot);
   const followed: FollowedCar = {
     slot,
     state: STATE_NAME[state] ?? 'parked',
     departedAt,
     arrivedAt,
-    elapsed: departedAt < 0 ? 0 : (arrivedAt >= 0 ? arrivedAt : s.simT) - departedAt,
-    hops: f.dHops[slot],
+    elapsed: departedAt < 0 ? 0 : (arrivedAt >= 0 ? arrivedAt : s.clock.simT) - departedAt,
+    hops: car.hops,
     routeTruncated: truncated,
     // Base edges carry edgeId === index (§9.2), which is what the probe and names messages want.
     originEdgeId: edges.length > 0 ? edges[0] : -1,
-    currentEdgeId: state === MOVING || state === STUCK ? f.dEdge[slot] : -1,
+    currentEdgeId: state === MOVING || state === STUCK ? car.edge : -1,
   };
   setState({ followed });
   // Base edges carry edgeId === index (§9.2), and app.ts already caches whatever comes back.

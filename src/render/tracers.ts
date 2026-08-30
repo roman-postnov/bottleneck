@@ -5,7 +5,13 @@
 // typed arrays, so the whole state machine runs under vitest in Node.
 //
 // The renderer still imports nothing from src/core (§15): the graph arrives in the ready
-// message as data.
+// message as data. The mixer and the projection it shares with the worker live in src/shared,
+// which is a leaf and therefore on the legal side of that line.
+
+import { mix32 } from '../shared/rng.ts';
+
+// biome-ignore lint/performance/noBarrelFile: §16.6 -- §13 declares the projection as part of this module's API; only its source moved
+export { M_PER_DEG_LAT, mPerDegLon, toMeterOffsets } from '../shared/geo.ts';
 
 export const PARKED = 0;
 export const MOVING = 1;
@@ -216,18 +222,6 @@ export type TracerField = {
   spawned: number;
 };
 
-function splitmix32(a: number): number {
-  // Copied from src/core/rng.ts rather than imported: §15 forbids src/render from importing
-  // src/core, and test/boundaries.test.ts enforces it by reading the source text.
-  // test/tracers.test.ts pins the two streams together so the copy cannot drift.
-  const x = (a + 0x9e3779b9) | 0;
-  let z = x ^ (x >>> 16);
-  z = Math.imul(z, 0x21f0aaad);
-  z ^= z >>> 15;
-  z = Math.imul(z, 0x735a2d97);
-  return (z ^ (z >>> 15)) >>> 0;
-}
-
 function nextRandom(f: TracerField, i: number): number {
   let x = f.dRng[i];
   x ^= x << 13;
@@ -261,26 +255,6 @@ export function cumulative(
     edgeLen[e] = acc > 1 ? acc : 1;
   }
   return { cum, edgeLen };
-}
-
-/**
- * The projection of §13.2, copied from src/worker/geometry.ts rather than imported: §15 forbids
- * src/render from importing src/core, and buildNodeXY sits behind that line. The worker places
- * the parked cars and this file places the moving ones, so the two have to agree to the metre --
- * test/tracers.test.ts pins them together, the way _splitmix32 is pinned to src/core/rng.ts.
- */
-export const M_PER_DEG_LAT = 110540;
-export const mPerDegLon = (latDeg: number): number => 111320 * Math.cos(latDeg * (Math.PI / 180));
-
-/** Lon/lat degrees to metre offsets from `center`, matching buildNodeXY in the worker. */
-export function toMeterOffsets(positions: Float64Array, center: [lat: number, lon: number]): Float32Array {
-  const out = new Float32Array(positions.length);
-  const mPerLon = mPerDegLon(center[0]);
-  for (let k = 0; k < positions.length; k += 2) {
-    out[k] = (positions[k] - center[1]) * mPerLon;
-    out[k + 1] = (positions[k + 1] - center[0]) * M_PER_DEG_LAT;
-  }
-  return out;
 }
 
 function reciprocals(f: TracerField): void {
@@ -467,7 +441,7 @@ function fillYards(f: TracerField, demand0: Float32Array, seed: number): void {
     // Rows down each street, so k cars over deg streets stand deg abreast and k/deg deep.
     const rows = deg > 0 ? Math.ceil((k - atHouses) / deg) : 0;
     for (let j = 0; j < k; j++, slot++) {
-      const key = splitmix32(seed ^ splitmix32(Math.imul(v, 0x9e3779b1) + j));
+      const key = mix32(seed ^ mix32(Math.imul(v, 0x9e3779b1) + j));
       dKey[slot] = key;
       dRng[slot] = key === 0 ? 1 : key; // xorshift32 is dead at zero
       dNode[slot] = v;
@@ -506,7 +480,7 @@ function fillYards(f: TracerField, demand0: Float32Array, seed: number): void {
       alongEdge(f, e, dist, lateral, yardPos, slot * 2);
     }
     f.yardEnd[v] = slot;
-    f.dither[v] = splitmix32(Math.imul(v, 0x85ebca6b) ^ seed) / 4294967296;
+    f.dither[v] = mix32(Math.imul(v, 0x85ebca6b) ^ seed) / 4294967296;
   }
   f.parkedCount = slot;
   f.parkedDirty = true;
@@ -860,6 +834,48 @@ export function carPosition(f: TracerField, slot: number): [number, number] | nu
 }
 
 /** max |dotsOn[e] - n[e]|: the self-check that says whether the Newell wiring is right. */
+/** What a caller outside this module may know about one car. */
+export type CarSnapshot = {
+  state: number;
+  /** Dense edge index, which is also the edgeId for a base edge (§9.2). */
+  edge: number;
+  hops: number;
+  /** Simulated seconds, as stamped when the car left its driveway. */
+  spawnT: number;
+  arriveT: number;
+};
+
+export function carSnapshot(f: TracerField, slot: number): CarSnapshot {
+  return {
+    state: f.dState[slot],
+    edge: f.dEdge[slot],
+    hops: f.dHops[slot],
+    spawnT: f.dSpawnT[slot],
+    arriveT: f.dArriveT[slot],
+  };
+}
+
+/**
+ * Resolve a picked index back to a car. The index is a place in a compacted output buffer,
+ * not a slot: only the moving buffer keeps a slot map, the yards are contiguous ranges and
+ * are walked instead, which is fine for something that happens on a click.
+ */
+export function pickedSlot(f: TracerField, layerId: string, index: number): number {
+  if (layerId === 'cars') return f.slotOf[index];
+  if (layerId === 'stuck') return f.stuckList[index];
+  if (layerId === 'parked') return parkedSlotAt(f, index);
+  return -1;
+}
+
+/** Nothing is drawn this frame -- the particle layer is off. */
+export function clearDrawn(f: TracerField): void {
+  f.count = 0;
+}
+
+export function drawnCounts(f: TracerField): { dots: number; parked: number; stuck: number } {
+  return { dots: f.count, parked: f.parkedCount, stuck: f.stuckCount };
+}
+
 export function dotError(f: TracerField): number {
   let worst = 0;
   for (let e = 0; e < f.E; e++) {
@@ -870,4 +886,3 @@ export function dotError(f: TracerField): number {
 }
 
 /** Exposed for the test that pins the copied mixer against src/core/rng.ts. */
-export const _splitmix32 = splitmix32;

@@ -1,6 +1,8 @@
 // The only source of randomness in the project (CONTRACTS.md §10).
 // Math.random() is forbidden in src/core and src/worker and is checked by test/boundaries.
 
+import { splitmix32 } from '../shared/rng.ts';
+
 /**
  * xorshift128+ over 32-bit halves. JavaScript has no 64-bit integers outside BigInt, and
  * BigInt in a hot loop is an order of magnitude slower, so each 64-bit word is carried as
@@ -13,24 +15,9 @@ export type Rng = {
   next: () => number;
 };
 
-/**
- * splitmix32: expands a small seed into well-mixed state words.
- *
- * Exported so test/tracers.test.ts can pin the copy in src/render/tracers.ts against it. §15
- * forbids src/render from importing src/core, so the mixer had to be duplicated there, and an
- * undetected drift between the two would make a dot's route irreproducible in a way nothing
- * else would catch.
- */
-export function splitmix32(a: number): () => number {
-  let x = a | 0;
-  return () => {
-    x = (x + 0x9e3779b9) | 0;
-    let z = x;
-    z = Math.imul(z ^ (z >>> 16), 0x21f0aaad);
-    z = Math.imul(z ^ (z >>> 15), 0x735a2d97);
-    return (z ^ (z >>> 15)) >>> 0;
-  };
-}
+/** §7.2 names splitmix32 as part of this module's API; the mixer itself lives in src/shared. */
+// biome-ignore lint/performance/noBarrelFile: §16.6 -- the contract file re-exports its declared API, so the split stays invisible from outside
+export { splitmix32 } from '../shared/rng.ts';
 
 export function createRng(seed: number): Rng {
   const mix = splitmix32(seed);

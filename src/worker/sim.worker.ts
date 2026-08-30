@@ -1,11 +1,14 @@
 // The simulation worker (CONTRACTS.md §8). Owns the city and the SimState; the main thread
 // only ever sees frames.
 
-import { parseCity } from '../core/city.ts';
+import { loadCity } from '../core/city.ts';
 import { maxFlow } from '../core/maxflow.ts';
+import { networkTotals } from '../core/metrics.ts';
 import { resolveParams } from '../core/scenario.ts';
 import { applyEdits, createSim, metrics, tick, updateFrameStats } from '../core/sim.ts';
 import type { City, Metrics, Scenario, SimState } from '../core/types.ts';
+import { FramePool } from './bufferPool.ts';
+import { TickClock } from './clock.ts';
 import { buildBuildingXY, buildEdgeGeometry, buildNodeXY } from './geometry.ts';
 import type { WorkerScope, WorkerToMain } from './protocol.ts';
 
@@ -13,8 +16,6 @@ const ctx = globalThis as unknown as WorkerScope;
 
 /** Compute slice per scheduling turn. Keeps the worker answering messages while it runs. */
 const SLICE_MS = 12;
-/** Frames are thinned to this cadence; ticks are never dropped, only frames (§1.1). */
-const FRAME_INTERVAL_MS = 16;
 const CURVE_EVERY_SEC = 60;
 
 let city: City | null = null;
@@ -32,20 +33,9 @@ let playing = false;
 let speedX = 60;
 let stopAt = Number.POSITIVE_INFINITY;
 
-/**
- * One set per in-flight frame. Three arrays travel together now (§8): n, the per-edge outflow
- * delta and the per-node departure delta, so they are pooled and recycled together -- a pool
- * per array would let one run dry while another had spares and skip frames for no reason.
- */
-type FrameSet = { n: Float32Array; outflow: Float32Array; departed: Float32Array };
-const pool: FrameSet[] = [];
-/** Split snapshots, pooled separately: they ride along only when the field is rebuilt. */
-const fieldPool: Float32Array[] = [];
+const pool = new FramePool();
+const clock = new TickClock();
 let sentFieldRev = -1;
-let lastFrameAt = 0;
-let lastStepAt = 0;
-/** Fractional ticks carried between turns; flooring per turn would ignore slow speeds. */
-let tickDebt = 0;
 let curve: number[] = [];
 let nextCurveAt = 0;
 let finishedSent = false;
@@ -58,12 +48,6 @@ function fail(where: string, err: unknown): void {
   post({ type: 'error', where, message: err instanceof Error ? err.message : String(err) });
 }
 
-async function loadCityFrom(url: string): Promise<City> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${url}`);
-  return parseCity(await res.arrayBuffer());
-}
-
 function configure(next: Scenario): void {
   if (!city) throw new Error('configure before init');
   scenario = next;
@@ -74,22 +58,12 @@ function configure(next: Scenario): void {
   s.maxFlowVehH = mf.valueVehH;
   sim = s;
 
-  pool.length = 0;
-  for (let i = 0; i < 2; i++) {
-    pool.push({
-      n: new Float32Array(city.E),
-      outflow: new Float32Array(city.E),
-      departed: new Float32Array(city.V),
-    });
-  }
-  fieldPool.length = 0;
-  fieldPool.push(new Float32Array(city.E), new Float32Array(city.E));
+  pool.reset(city.E, city.V);
+  clock.reset();
   sentFieldRev = s.fieldRev;
   curve = [];
   nextCurveAt = 0;
   finishedSent = false;
-  lastFrameAt = 0;
-  lastStepAt = 0;
 
   const geo = buildEdgeGeometry(city);
   const storage = Float32Array.from(s.storage);
@@ -158,30 +132,18 @@ function configure(next: Scenario): void {
 
 type ReadyMeta = Extract<WorkerToMain, { type: 'ready' }>['meta'];
 
-function totals(s: SimState): { enRoute: number; notDeparted: number; onNetwork: number } {
-  let enRoute = 0;
-  let notDeparted = 0;
-  let onNetwork = 0;
-  for (let v = 0; v < s.city.V; v++) {
-    notDeparted += s.waiting[v];
-    enRoute += s.queued[v];
-  }
-  for (let e = 0; e < s.city.E; e++) onNetwork += s.n[e];
-  return { enRoute: enRoute + onNetwork, notDeparted, onNetwork };
-}
-
 function emitFrame(ticksInFrame: number, wallMs: number, force = false): void {
   const s = sim;
   if (!s) return;
   const now = performance.now();
-  if (!force && now - lastFrameAt < FRAME_INTERVAL_MS) return;
+  if (!clock.frameDue(now, force)) return;
 
   // No free buffer means the main thread has not returned one yet -- skip the frame and
   // keep simulating. Waiting here would make the simulator look hung (§8).
-  const set = pool.pop();
+  const set = pool.takeSet();
   if (!set) return;
 
-  lastFrameAt = now;
+  clock.markFrame(now);
   updateFrameStats(s);
   set.n.set(s.n);
   // Drained, not read: the accumulators are cleared only here, on a post that is definitely
@@ -196,7 +158,7 @@ function emitFrame(ticksInFrame: number, wallMs: number, force = false): void {
   const transfer: Transferable[] = [set.n.buffer, set.outflow.buffer, set.departed.buffer];
   let split: Float32Array | undefined;
   if (s.fieldRev !== sentFieldRev) {
-    const buf = fieldPool.pop();
+    const buf = pool.takeSplit();
     // Nothing free: leave sentFieldRev alone so the next frame tries again. The tracers keep
     // routing on the previous field for a few frames, which is what they already do between
     // reoptimisations anyway.
@@ -208,7 +170,7 @@ function emitFrame(ticksInFrame: number, wallMs: number, force = false): void {
     }
   }
 
-  const { enRoute, notDeparted, onNetwork } = totals(s);
+  const { enRoute, notDeparted, onNetwork } = networkTotals(s);
   post(
     {
       type: 'frame',
@@ -270,21 +232,11 @@ function step(): void {
   const s = sim;
   if (!(s && playing)) return;
 
-  const now = performance.now();
-  const dtSec = lastStepAt === 0 ? 1 / 60 : (now - lastStepAt) / 1000;
-  lastStepAt = now;
-
-  // Capping elapsed time instead of the debt would break slow speeds: at x1 the worker
-  // sleeps a whole second between ticks, and a 0.1 s cap would turn x1 into x0.1.
-  tickDebt = Math.min(tickDebt + speedX * dtSec, speedX * 0.25 + 1);
-  const want = Math.floor(tickDebt);
+  const { want, sleepMs } = clock.plan(performance.now(), speedX);
   if (want < 1) {
-    // Not a whole tick due yet. Sleeping until it is keeps x1 at x1 instead of running as
-    // fast as the scheduler will fire.
-    setTimeout(step, Math.max(1, ((1 - tickDebt) / speedX) * 1000));
+    setTimeout(step, sleepMs);
     return;
   }
-  tickDebt -= want;
 
   const t0 = performance.now();
   let ticks = 0;
@@ -302,7 +254,7 @@ function step(): void {
   }
   // Whatever did not fit in the slice is dropped, not carried: the hardware is the limit
   // and the UI shows the acceleration actually achieved (§1.1).
-  tickDebt = 0;
+  clock.dropRemainder();
   const wallMs = performance.now() - t0;
 
   emitFrame(ticks, wallMs);
@@ -321,11 +273,49 @@ function step(): void {
   setTimeout(step, 0);
 }
 
+/**
+ * Deferred like `configure`: the names of a preset's edits are asked for in the same breath as
+ * the scenario, and the city is still being fetched then.
+ */
+function answerNames(edgeIds: number[]): void {
+  cityReady
+    ?.then(() => {
+      const s = sim;
+      if (!(s && city)) return;
+      const names: Record<number, string> = {};
+      for (const id of edgeIds) {
+        const e = s.indexOfEdgeId.get(id);
+        if (e !== undefined) names[id] = city.nameOf(e);
+      }
+      post({ type: 'names', names });
+    })
+    .catch((e) => fail('names', e));
+}
+
+function answerProbe(edgeId: number): void {
+  const s = sim;
+  if (!(s && city)) return;
+  const e = s.indexOfEdgeId.get(edgeId);
+  if (e === undefined) return;
+  post({
+    type: 'probeResult',
+    edgeId,
+    name: city.nameOf(e),
+    lanes: s.lanes[e],
+    capVehH: Math.round(s.cap[e] * 3600),
+    n: s.n[e],
+    storage: s.storage[e],
+    ttSec: s.ttSec[e],
+    load: s.n[e] / s.storage[e],
+    twin: city.twin[e],
+    blocked: s.blocked[e] === 1,
+  });
+}
+
 function resume(): void {
   if (!sim || playing) return;
   playing = true;
-  lastStepAt = 0;
-  tickDebt = 0;
+  clock.restart();
   setTimeout(step, 0);
 }
 
@@ -336,8 +326,7 @@ ctx.addEventListener('message', (ev) => {
       case 'init': {
         const url = msg.cityUrl;
         const meta = msg.meta;
-        cityReady = loadCityFrom(url).then((c) => {
-          c.meta = meta;
+        cityReady = loadCity(url, meta).then((c) => {
           city = c;
           return c;
         });
@@ -390,53 +379,21 @@ ctx.addEventListener('message', (ev) => {
 
       case 'recycle':
         if (city && msg.n.length === city.E && msg.departed.length === city.V) {
-          pool.push({ n: msg.n, outflow: msg.outflow, departed: msg.departed });
+          pool.giveSet({ n: msg.n, outflow: msg.outflow, departed: msg.departed });
         }
         break;
 
       case 'recycleField':
-        if (city && msg.split.length === city.E) fieldPool.push(msg.split);
+        if (city && msg.split.length === city.E) pool.giveSplit(msg.split);
         break;
 
-      case 'names': {
-        // Deferred like `configure`: the names of a preset's edits are asked for in the same
-        // breath as the scenario, and the city is still being fetched then.
-        const ids = msg.edgeIds;
-        cityReady
-          ?.then(() => {
-            const s = sim;
-            if (!(s && city)) return;
-            const names: Record<number, string> = {};
-            for (const id of ids) {
-              const e = s.indexOfEdgeId.get(id);
-              if (e !== undefined) names[id] = city.nameOf(e);
-            }
-            post({ type: 'names', names });
-          })
-          .catch((e) => fail('names', e));
+      case 'names':
+        answerNames(msg.edgeIds);
         break;
-      }
 
-      case 'probe': {
-        const s = sim;
-        if (!(s && city)) break;
-        const e = s.indexOfEdgeId.get(msg.edgeId);
-        if (e === undefined) break;
-        post({
-          type: 'probeResult',
-          edgeId: msg.edgeId,
-          name: city.nameOf(e),
-          lanes: s.lanes[e],
-          capVehH: Math.round(s.cap[e] * 3600),
-          n: s.n[e],
-          storage: s.storage[e],
-          ttSec: s.ttSec[e],
-          load: s.n[e] / s.storage[e],
-          twin: city.twin[e],
-          blocked: s.blocked[e] === 1,
-        });
+      case 'probe':
+        answerProbe(msg.edgeId);
         break;
-      }
       default:
         throw new Error(`unknown message ${JSON.stringify(msg)}`);
     }

@@ -4,17 +4,10 @@
 
 import { GEOM_SCALE } from '../core/city.ts';
 import type { City } from '../core/types.ts';
+import { M_PER_DEG_LAT, mPerDegLon } from '../shared/geo.ts';
 
-/**
- * The equirectangular projection §13.2 works in. Metres per degree of latitude is a constant;
- * metres per degree of longitude shrinks with the cosine of the latitude.
- *
- * src/render/tracers.ts carries the same two, because §15 forbids it to import anything from
- * here, and test/tracers.test.ts pins the copies together: a drift of one metre per degree
- * puts every dot beside its road instead of on it.
- */
-export const M_PER_DEG_LAT = 110540;
-export const mPerDegLon = (latDeg: number): number => 111320 * Math.cos(latDeg * (Math.PI / 180));
+// biome-ignore lint/performance/noBarrelFile: §16.6 -- buildNodeXY's callers read the projection from here; only its source moved
+export { M_PER_DEG_LAT, mPerDegLon } from '../shared/geo.ts';
 
 export type EdgeGeometry = {
   positions: Float64Array;

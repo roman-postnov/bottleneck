@@ -98,3 +98,22 @@ export function metrics(s: SimState): Metrics {
     busRunsNeeded: Math.ceil(carless / s.params.busSeats),
   };
 }
+
+/**
+ * Where the fleet is right now, for the frame message of §8.2. It walks the model's own
+ * arrays, so it belongs beside the metrics rather than in the transport layer that ships it.
+ *
+ * `onNetwork` is the sum of n[e] alone. `enRoute` adds the cars still queued in driveways,
+ * which is why the renderer cannot use it to decide how many dots to put on roads.
+ */
+export function networkTotals(s: SimState): { enRoute: number; notDeparted: number; onNetwork: number } {
+  let enRoute = 0;
+  let notDeparted = 0;
+  let onNetwork = 0;
+  for (let v = 0; v < s.city.V; v++) {
+    notDeparted += s.waiting[v];
+    enRoute += s.queued[v];
+  }
+  for (let e = 0; e < s.city.E; e++) onNetwork += s.n[e];
+  return { enRoute: enRoute + onNetwork, notDeparted, onNetwork };
+}

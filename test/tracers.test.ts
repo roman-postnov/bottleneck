@@ -6,7 +6,6 @@
 import { describe, expect, it } from 'vitest';
 import { splitmix32 } from '../src/core/rng.ts';
 import {
-  _splitmix32,
   ARRIVED,
   advance,
   createTracers,
@@ -25,6 +24,7 @@ import {
   writeParked,
   writePositions,
 } from '../src/render/tracers.ts';
+import { mix32 } from '../src/shared/rng.ts';
 import { M_PER_DEG_LAT as GEOM_M_PER_DEG_LAT, mPerDegLon as geomMPerDegLon } from '../src/worker/geometry.ts';
 
 /** The CSR pair the ready message carries. An empty list is a city whose file predates §3.2's
@@ -127,19 +127,19 @@ function departOne(f: TracerField, v: number, simT: number, n?: Float32Array): v
   frame(f, simT, { departed, n });
 }
 
-describe('§15: what src/render had to copy has not drifted from the original', () => {
-  it('the projection matches src/worker/geometry.ts to the bit', () => {
-    // A drift of one metre per degree puts every moving dot beside the road the parked ones
-    // are on: the worker places the parked cars, this file places the moving ones.
+describe('§15: src/render and src/worker share the projection rather than copy it', () => {
+  it('the projection is the same binding on both sides of the boundary', () => {
+    // These were two copies pinned together by this test. They are now one module under
+    // src/shared; the assertion stays so that re-introducing a copy goes red.
     expect(M_PER_DEG_LAT).toBe(GEOM_M_PER_DEG_LAT);
     for (const lat of [0, 24.55, 37.76, 39.76, 47.57, 60, 89.9, -33.9]) {
       expect(mPerDegLon(lat), `lat ${lat}`).toBe(geomMPerDegLon(lat));
     }
   });
 
-  it('_splitmix32 matches the first output of src/core/rng.ts splitmix32', () => {
+  it('the stateless mixer agrees with the first output of the stateful one', () => {
     for (const seed of [0, 1, 42, 12345, -7, 0x7fffffff, 0x9e3779b9 | 0]) {
-      expect(_splitmix32(seed), `seed ${seed}`).toBe(splitmix32(seed)());
+      expect(mix32(seed), `seed ${seed}`).toBe(splitmix32(seed)());
     }
   });
 });
