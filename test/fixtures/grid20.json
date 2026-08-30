@@ -1,0 +1,26 @@
+{
+  "id": "grid20",
+  "name": "Synthetic grid 20x20",
+  "blurb": "Synthetic fixture (grid). Not real geography.",
+  "center": [
+    37.77708708691077,
+    -122.418386718173
+  ],
+  "zoom": 13,
+  "bytes": 41400,
+  "nodes": 402,
+  "edges": 1522,
+  "population": 20000,
+  "carlessPeople": 1600,
+  "exits": 2,
+  "zones": [
+    "",
+    "NW",
+    "NE",
+    "SW",
+    "SE"
+  ],
+  "unassignedPop": 0,
+  "smallCity": true,
+  "notes": "synth.mjs --kind grid {\"n\":20,\"pop\":20000,\"exits\":2}"
+}

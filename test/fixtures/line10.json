@@ -1,0 +1,22 @@
+{
+  "id": "line10",
+  "name": "Synthetic chain of 10",
+  "blurb": "Synthetic fixture (line). Not real geography.",
+  "center": [
+    39.7596,
+    -121.5914833556144
+  ],
+  "zoom": 13,
+  "bytes": 860,
+  "nodes": 12,
+  "edges": 21,
+  "population": 5000,
+  "carlessPeople": 400,
+  "exits": 1,
+  "zones": [
+    ""
+  ],
+  "unassignedPop": 0,
+  "smallCity": true,
+  "notes": "synth.mjs --kind line {\"n\":10,\"pop\":5000}"
+}

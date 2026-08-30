@@ -1,0 +1,22 @@
+{
+  "id": "island8",
+  "name": "Island 8x8, one bridge",
+  "blurb": "Synthetic fixture (island). Not real geography.",
+  "center": [
+    47.57786905318259,
+    -122.18167795474002
+  ],
+  "zoom": 13,
+  "bytes": 6248,
+  "nodes": 66,
+  "edges": 227,
+  "population": 25000,
+  "carlessPeople": 3000,
+  "exits": 1,
+  "zones": [
+    ""
+  ],
+  "unassignedPop": 0,
+  "smallCity": true,
+  "notes": "synth.mjs --kind island {\"n\":8,\"pop\":25000}"
+}

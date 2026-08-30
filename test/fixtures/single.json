@@ -1,0 +1,22 @@
+{
+  "id": "single",
+  "name": "Single edge, 2 lanes",
+  "blurb": "Synthetic fixture (single). Not real geography.",
+  "center": [
+    37,
+    -121.99436964452238
+  ],
+  "zoom": 13,
+  "bytes": 228,
+  "nodes": 2,
+  "edges": 1,
+  "population": 1000000,
+  "carlessPeople": 0,
+  "exits": 1,
+  "zones": [
+    ""
+  ],
+  "unassignedPop": 0,
+  "smallCity": true,
+  "notes": "synth.mjs --kind single {\"lanes\":2,\"pop\":1000000}"
+}

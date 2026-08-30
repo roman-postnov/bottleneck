@@ -1,0 +1,17 @@
+{
+  "name": "bottleneck",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "fixtures": "node tools/synth.mjs --all",
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "^7.1.5",
+    "vitest": "^3.2.4"
+  }
+}

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+data/raw/*.pbf
+data/raw/*.tif
+data/raw/*.zip
+*.log
+*.md
+!AGENTS.md
