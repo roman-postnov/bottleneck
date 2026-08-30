@@ -1,134 +1,170 @@
-<h1 align="center"><a href="https://roman-postnov.github.io/bottleneck/">🚀 LIVE DEMO</a></h1>
+<h1 align="center"><a href="https://roman-postnov.github.io/bottleneck/">🚀 OPEN THE LIVE DEMO</a></h1>
 
 # Bottleneck
 
-**How fast can a city empty itself by car, and which roads decide the answer?**
+<p align="center">
+  <strong>Find the roads that decide whether a city clears.</strong><br>
+  An interactive evacuation simulator built on real road networks.
+</p>
 
-A browser evacuation-capacity simulator on real OpenStreetMap data. Max-flow gives you a
-number; the minimum cut gives you an address — the specific roads every car has to pass
-through. Four cities ship ready to run, including Paradise, California, on the morning of the
-Camp Fire.
+<p align="center">
+  <a href="https://github.com/roman-postnov/bottleneck/actions/workflows/ci.yml"><img alt="CI and deploy" src="https://github.com/roman-postnov/bottleneck/actions/workflows/ci.yml/badge.svg"></a>
+  ·
+  <a href="LICENSE">MIT License</a>
+</p>
 
-<!-- Add a screenshot here once one exists: ![](docs/screenshot.png) -->
+> **Max-flow gives the ceiling. The simulation shows the traffic. The minimum cut names the roads that matter.**
 
-## Run it
+Bottleneck turns a city's road network, population, and closure schedule into an explorable
+decision. It answers three questions that a static evacuation map cannot:
 
-```sh
-npm i
+- How quickly can this city move its vehicles out?
+- Where does the queue form when capacity is exceeded?
+- Which specific road, bridge, or corridor changes the outcome?
+
+The result is not another animated map. It is a way to connect a city-wide number to the
+small set of roads that controls it.
+
+<p align="center">
+  <img src="docs/preview.png" alt="Bottleneck running a San Francisco evacuation scenario" width="100%">
+</p>
+
+## See it in 60 seconds
+
+1. Open the [live demo](https://roman-postnov.github.io/bottleneck/).
+2. Choose **Paradise, 8 Nov 2018 — as it happened**.
+3. Press **Play** and enable **show the bottleneck**.
+4. Click a road, then try **Close**, **+1 lane**, or **Contraflow**.
+5. Watch the clearance time, queue, outbound flow, and highlighted bottleneck change together.
+6. Use **Copy link** to share the exact scenario.
+
+The change is applied at the simulated minute when it happens, so an intervention can be tested
+as part of the event rather than only before it starts.
+
+## What the demo makes visible
+
+| Question | What Bottleneck shows |
+|---|---|
+| Where does the city fail? | The minimum cut highlights every road that all successful routes must cross. |
+| What does failure look like? | Queues, storage limits, spillback, and individual vehicles evolve on the map. |
+| Can an intervention help? | Road closures, extra lanes, and contraflow can be introduced during the run. |
+| Does driver behaviour matter? | Routing information, occupancy, mobilisation, and road saturation are adjustable. |
+| Who is missing from a car-only model? | People without access to a car are reported separately instead of disappearing silently. |
+
+## Real places, real questions
+
+| Case | Why it matters |
+|---|---|
+| **Paradise, California** | The Camp Fire case: timed closures, four arterial exits, and a direct comparison with NIST's evacuation study. |
+| **Mercer Island, Washington** | An island network where I-90 is the decisive way out. |
+| **Florida Keys** | A long, linear chain of islands where a dominant highway controls the result. |
+| **San Francisco, California** | A large network with alternative corridors, bridges, and non-obvious spare capacity. |
+
+A few results from the built-in scenarios:
+
+- In **Paradise**, the minimum cut identifies the four escape arteries and gives the network a
+  5,940 vehicles-per-hour ceiling under the documented scenario.
+- In **San Francisco**, the baseline run reaches T90 in 10 h 14 min; closing the Bay Bridge
+  adds 2 h 05 min.
+- In the **Florida Keys**, the model makes the fragility of a long, nearly linear network
+  visible without hiding the assumptions behind it.
+
+These are scenario results, not emergency forecasts. The project keeps its assumptions and
+known misses explicit instead of presenting one run as a prediction.
+
+## How it works
+
+~~~mermaid
+flowchart LR
+  A[Real road data] --> B[City network]
+  B --> C[Traffic simulation]
+  C --> D[Live queues and vehicles]
+  C --> E[Clearance curve]
+  B --> F[Max-flow and min-cut]
+  F --> G[Critical roads]
+~~~
+
+The core is a mesoscopic traffic model: roads have capacity and storage, nodes handle merges
+and diverges, and spillback emerges from those constraints. This keeps the model fast enough
+for a browser while preserving the behaviour that makes evacuation planning difficult.
+
+The engineering choices support the explanation:
+
+- **Explainable capacity:** max-flow computes the theoretical outbound ceiling, while the
+  minimum cut maps that ceiling back to real roads.
+- **Traffic, not just throughput:** route choice, mobilization, queues, and time-stamped edits
+  turn a single capacity number into a visible process.
+- **Deterministic scenarios:** the same inputs produce the same run, making comparisons and
+  shared links reproducible.
+- **Browser-native performance:** TypeScript, React, Vite, Web Workers, typed arrays, deck.gl,
+  and MapLibre run the simulation as a static site with no application server.
+- **Honest boundaries:** the interface exposes assumptions instead of presenting a precise-looking
+  number as a prediction.
+
+## Run locally
+
+The repository includes four real city networks and ready-to-run scenarios. No data download is
+needed for the demo.
+
+Requires Node.js 24, the version used by CI:
+
+~~~sh
+npm ci
 npm run dev
-```
+~~~
 
-Four cities are prebuilt in `public/cities/`, so nothing has to be downloaded or preprocessed:
+To build and preview the production bundle:
 
-| city | nodes | edges | people | ways out |
-|---|---:|---:|---:|---:|
-| Paradise, CA | 1 969 | 4 332 | 26 500 | 4 |
-| Mercer Island, WA | 1 210 | 2 701 | 25 720 | 3 |
-| Florida Keys, FL | 5 904 | 13 515 | 82 874 | 2 |
-| San Francisco, CA | 14 149 | 33 798 | 830 235 | 12 |
+~~~sh
+npm run build
+npm run preview
+~~~
 
-Click a road to probe it; close it, add a lane or reverse it, and the run restarts with the
-change stamped at the minute you made it. "Copy link" packs the whole scenario into the URL.
+For development checks:
 
-To rebuild a city from scratch: `data/raw/fetch.sh` (Geofabrik extracts) → `npm run extract`
-(Python + pyosmium) → `npm run preprocess`.
+~~~sh
+npm run check
+~~~
 
-`npm run check` is the gate: typecheck, lint, 222 tests.
+<details>
+<summary>Rebuild a city from raw OpenStreetMap data</summary>
 
-## What's inside
+The offline pipeline downloads Geofabrik extracts, converts them to intermediate data, and
+builds the binary city network used by the browser:
 
-The model is mesoscopic — queues on edges with a capacity and a storage limit — which is the
-level where spillback appears as a consequence of the physics rather than as a drawn effect.
+~~~sh
+python3 -m venv tools/.venv
+tools/.venv/bin/pip install -r tools/requirements.txt
+data/raw/fetch.sh
+npm run extract -- <cityId>
+npm run preprocess -- <cityId>
+~~~
 
-- **Dinic max-flow and the minimum cut** — `src/core/maxflow.ts:55`. Integer capacities in
-  whole veh/h, so max-flow/min-cut equality is exact with no tuned epsilon, and an iterative
-  blocking flow because a road network's level graph is deeper than the JS stack.
-- **Daganzo node model** — `src/core/nodeModel.ts:55`. Capacity-weighted proportional
-  allocation with saturation. The result does not depend on the order the nodes are walked in,
-  and that is proved by a test, not asserted.
-- **Route choice** — `src/core/routing.ts:160`. Reverse Dijkstra from the exits over an indexed
-  binary heap, multinomial logit over the descent set (`:118`), and three potentials: one
-  priced on free-flow time for the uninformed share, one on observed time for the informed
-  share, and a third on the blend that decides which directions are allowed at all. Mixing the
-  shares of two potentials instead deadlocks the network.
-- **Graph preparation** — Tarjan SCC keeps the largest component and relocates the exits onto
-  its frontier (`src/core/graph.ts:28`); missing lane counts are filled from the median of
-  other segments of the same named road (`tools/preprocess.ts:170`), which is what stops
-  Paradise's Skyway from leaving town as a single lane.
-- **Departure** — a Rayleigh mobilization curve evaluated in closed form
-  (`src/core/mobilization.ts:8`), so the departure count cannot drift away from the mass balance.
-- **Determinism** — a hand-written xorshift128+ seeded through splitmix32
-  (`src/core/rng.ts:22`). `Math.random` is banned in the model and in the worker, and the ban
-  is a test. Two runs of the same scenario agree bit for bit.
-- **One dot is one car** — `src/render/tracers.ts:699`. A dot's position is Newell's
-  cumulative-count solution in closed form, so the number of dots on an edge equals the model's
-  own `n[e]` by construction, and a car's whole route replays from 4-bit CSR decisions
-  (`:602`). `dotError` (`:879`) reports the largest disagreement between what is drawn and what
-  is simulated; it is asserted to stay at most 2 cars.
-- **The honest metric** — `efficiency` in `src/core/metrics.ts:96` is peak outflow divided by
-  the theoretical max-flow: the simulation measured against its own ceiling.
+The prebuilt networks remain available, so this step is only needed when changing the source
+data or preprocessing rules.
 
-## Architecture
+</details>
 
-```
-  src/core     pure model over typed arrays -- no DOM, no deck.gl, no React.
-     |         Runs headless in node under vitest.
-     v
-  src/worker   the only place the model meets postMessage.
-     |
-     v
-  src/main     store, worker client, wiring. Frames never pass through React;
-     |  \      only a 200 ms-throttled summary reaches the UI.
-     v   v
-  src/ui   src/render   deck.gl layers, and a tracer state machine that itself
-                        imports no deck.gl -- which is what lets it be tested.
+## Scope and limitations
 
-  src/shared   a leaf under everything: the splitmix32 mixer and the metre projection,
-               which both sides of the render boundary need and neither may reach across
-               for. It imports nothing, which is the only thing that makes that sound.
+Bottleneck is a screening and discussion tool, not an operational emergency model. It simulates
+vehicle evacuation inside a selected boundary and treats crossing that boundary as success.
 
-  tools/       offline pipeline: .pbf -> intermediate JSON -> city.bin. Never imported from src.
-```
+It does not model fire spread, pedestrians, public transport, household-level decisions,
+neighbouring traffic outside the boundary, or the route to a safe destination. Its results are
+deliberately idealised and optimistic; compare scenarios and interventions rather than treating
+one run as a forecast.
 
-Those arrows are enforced, not documented. Imports are checked by the linter: `biome.jsonc`
-gives `src/core`, `src/render`, `src/worker` and `src/shared` a rule each, naming both the
-packages and the sibling directories none of them may reach for — so `src/core` importing
-`../ui/` is a build failure and not a matter of taste. The bans a linter cannot express are
-checked by `test/boundaries.test.ts`, which reads the sources: `Math.random` in the model,
-`postMessage` outside the worker, `console.log` in the tick, and any platform global in
-`src/core` apart from the permalink codec, whose exemption is named and has its own test that
-goes red the day the codec stops needing it.
+The model's assumptions and the direction in which they can move the result are part of the
+interpretation of every run.
 
-The binary city format has one reader and one writer, and the writer imports the reader's
-constants, because two independent statements of a layout drift apart silently. The worker
-protocol is a discriminated union both sides import, so protocol drift is a compile error.
-Units are in the names — `lenM`, `speedKmh`, `capVehS`, `ttSec` — everywhere but `SimState`'s
-own clock and capacity fields (`t`, `cap`), which the tick touches on every edge and which no
-rule enforces. There is no `any` in the codebase and no non-null assertion under `src/`.
+## Data and attribution
 
-One invariant lives in a comment rather than a type, and it is worth knowing before reading
-`src/core/sim.ts`: `SimState` is a struct of arrays sized once, and the accumulators
-`outAccum` and `depAccum` are drained by whoever ships a frame — `src/worker/sim.worker.ts`
-clears them after a post that is definitely going out. The core only ever adds to them.
+- Road geometry and building footprints come from [OpenStreetMap](https://www.openstreetmap.org/copyright)
+  extracts downloaded through [Geofabrik](https://download.geofabrik.de/).
+- Population inputs come from the documented NIST and U.S. Census sources for each case.
+- The basemap is provided by MapLibre and CARTO; attribution is shown in the application.
+- Preprocessed city networks are shipped as static assets with the Pages deployment; the
+  simulation itself runs in the browser.
 
-## Validation
-
-Target ranges were written down **before** the model was run, because a range chosen afterwards
-is fitting, not validation. Misses are recorded as misses.
-
-- **Paradise / Camp Fire, 8 Nov 2018**, against NIST Technical Note 2252: 8 of 12 checks pass.
-  The minimum cut landed on exactly the four arteries in a 2/1/1/1 lane split — 5 940 veh/h —
-  matching the report's implied five lanes to the unit, with the lane counts coming from OSM
-  and never from the report.
-- **San Francisco**: 6 of 6. `t90` 10 h 14 min; closing the Bay Bridge costs 2 h 05 min.
-- **Florida Keys**: 5 of 6. K4 missed — `t90` came out at 20 h 14 min against a claimed "more
-  than a day", and the target was kept rather than moved.
-- Failing checks are marked `it.fails` with a named reason, so the build turns red the day they
-  start passing.
-
-## Limitations
-
-The model gives a **lower bound** on clearance time, for the **car-owning** part of the
-population, inside the **given boundary**, under the **given schedule of closures**. Reality is
-worse on all four axes at once — which is the point: it is the ceiling of what the network can
-do, and nothing will beat it.
+Code is available under the [MIT License](LICENSE).
