@@ -5,7 +5,7 @@ import { parseCity } from '../core/city.ts';
 import { createSim, tick, applyEdits, metrics, updateFrameStats } from '../core/sim.ts';
 import { maxFlow } from '../core/maxflow.ts';
 import { resolveParams } from '../core/scenario.ts';
-import { buildEdgeGeometry, buildNodeXY } from './geometry.ts';
+import { buildEdgeGeometry, buildNodeXY, buildBuildingXY } from './geometry.ts';
 import type { City, Metrics, Scenario, SimState } from '../core/types.ts';
 import type { WorkerScope, WorkerToMain } from './protocol.ts';
 
@@ -104,6 +104,8 @@ function configure(next: Scenario): void {
   const split = Float32Array.from(s.field.split);
   const demand0 = Float32Array.from(s.demand0);
   const nodeXY = buildNodeXY(city, (city.meta as ReadyMeta).center);
+  const bldOff = Uint32Array.from(city.bldOff);
+  const bldXY = buildBuildingXY(city, (city.meta as ReadyMeta).center);
 
   const nodes: number[] = [];
   for (let v = 0; v < city.V; v++) if (demand0[v] > 0) nodes.push(v);
@@ -132,6 +134,8 @@ function configure(next: Scenario): void {
       demandNodes,
       nodeXY,
       maxOutDeg: city.maxOutDeg,
+      bldOff,
+      bldXY,
     },
     [
       storage.buffer,
@@ -145,6 +149,8 @@ function configure(next: Scenario): void {
       demand0.buffer,
       demandNodes.buffer,
       nodeXY.buffer,
+      bldOff.buffer,
+      bldXY.buffer,
     ],
   );
   emitFrame(0, 0, true);

@@ -9,6 +9,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { CityBuilder, haversineM } from './cityBuilder.ts';
+import type { BuildingRec } from './cityBuilder.ts';
 import { upsertCatalogue } from './catalogue.ts';
 import { MAX_EDGE_LEN_M, parseCity, stronglyConnectedComponents, validateCity } from '../src/core/city.ts';
 import { CLASS_CODE, HIGHWAY_CLASSES } from '../src/core/params.ts';
@@ -22,6 +23,8 @@ export type Extract = {
   bbox: Bbox;
   nodes: { id: number[]; lat: number[]; lon: number[] };
   ways: Array<{ i: number; r: number[]; t: Tags }>;
+  /** Absent in extracts written before v1.9. */
+  buildings?: { lat: number[]; lon: number[] };
 };
 
 export type CityConfig = {
@@ -421,6 +424,77 @@ export function assignPopulation(g: Graph, total: number): Float64Array {
   return pop;
 }
 
+// ------------------------------------------------------- §4 step 8bis: buildings to nodes
+
+/** Beyond this a house is not on that street any more and gets no car (§4 step 8bis). */
+export const BUILDING_RADIUS_M = 300;
+
+/**
+ * Attaches each building centroid to the nearest node that carries demand. Runs AFTER the
+ * prune, like assignPopulation and for the same reason: node numbering changes there, and a
+ * building attached to a node Tarjan then drops would index a vertex that no longer exists.
+ *
+ * `pop[v] > 0` rather than "has a residential out-edge": the two are the same set in
+ * `roadlength` mode, and taking the demand itself makes it so by construction rather than by
+ * argument -- a building whose node never releases a car would place a dot nobody drives away.
+ *
+ * A uniform grid, not a k-d tree. San Francisco is 166k buildings against 14k nodes; the tree
+ * would be code without a win.
+ */
+export function assignBuildings(
+  g: Graph,
+  pop: Float64Array,
+  blds: { lat: number[]; lon: number[] },
+): { buildings: BuildingRec[]; dropped: number } {
+  const out: BuildingRec[] = [];
+  if (blds.lat.length === 0) return { buildings: out, dropped: 0 };
+
+  const cand: number[] = [];
+  for (let v = 0; v < pop.length; v++) if (pop[v] > 0) cand.push(v);
+  if (cand.length === 0) return { buildings: out, dropped: blds.lat.length };
+
+  let lat0 = 0;
+  for (const v of cand) lat0 += g.nodes[v][0];
+  lat0 /= cand.length;
+  const cellLat = BUILDING_RADIUS_M / 111320;
+  const cellLon = BUILDING_RADIUS_M / (111320 * Math.max(0.05, Math.cos((lat0 * Math.PI) / 180)));
+
+  const cells = new Map<string, number[]>();
+  const key = (i: number, j: number): string => i + ':' + j;
+  for (const v of cand) {
+    const k = key(Math.floor(g.nodes[v][0] / cellLat), Math.floor(g.nodes[v][1] / cellLon));
+    const list = cells.get(k);
+    if (list) list.push(v);
+    else cells.set(k, [v]);
+  }
+
+  let dropped = 0;
+  for (let b = 0; b < blds.lat.length; b++) {
+    const lat = blds.lat[b] / 1e7;
+    const lon = blds.lon[b] / 1e7;
+    const ci = Math.floor(lat / cellLat);
+    const cj = Math.floor(lon / cellLon);
+    let best = -1;
+    let bestD = BUILDING_RADIUS_M;
+    for (let di = -1; di <= 1; di++) {
+      for (let dj = -1; dj <= 1; dj++) {
+        const list = cells.get(key(ci + di, cj + dj));
+        if (!list) continue;
+        for (const v of list) {
+          const d = haversineM([lat, lon], g.nodes[v]);
+          if (d < bestD) {
+            bestD = d;
+            best = v;
+          }
+        }
+      }
+    }
+    if (best < 0) dropped++;
+    else out.push({ node: best, lat, lon });
+  }
+  return { buildings: out, dropped };
+}
+
 // ---------------------------------------------------------------- §4 step 11: Tarjan
 
 /**
@@ -527,7 +601,12 @@ export function pruneToLargestComponent(
 
 // ---------------------------------------------------------------- §4 step 12: write
 
-export function toBuilder(g: Graph, pop: Float64Array, carlessShare: number): CityBuilder {
+export function toBuilder(
+  g: Graph,
+  pop: Float64Array,
+  carlessShare: number,
+  buildings: BuildingRec[] = [],
+): CityBuilder {
   const b = new CityBuilder();
   for (const [lat, lon] of g.nodes) b.node(lat, lon);
   const idx = g.arcs.map((a) =>
@@ -550,6 +629,7 @@ export function toBuilder(g: Graph, pop: Float64Array, carlessShare: number): Ci
   for (let v = 0; v < pop.length; v++) {
     if (pop[v] > 0) b.source(v, pop[v], pop[v] * carlessShare, 0);
   }
+  for (const bl of buildings) b.building(bl.node, bl.lat, bl.lon);
   return b;
 }
 
@@ -574,8 +654,10 @@ function main(cityId: string): void {
   const pruned = pruneToLargestComponent(g);
   const pop = assignPopulation(pruned.graph, cfg.population);
 
+  const bld = assignBuildings(pruned.graph, pop, ex.buildings ?? { lat: [], lon: [] });
+
   const carlessShare = cfg.carlessShare ?? 0;
-  const b = toBuilder(pruned.graph, pop, carlessShare);
+  const b = toBuilder(pruned.graph, pop, carlessShare, bld.buildings);
   const buf = b.serialize();
   const city = parseCity(buf);
   const errs = validateCity(city);
@@ -600,6 +682,7 @@ function main(cityId: string): void {
       ? 'Выезды найдены автоматически по пересечению bbox дорогами класса motorway/trunk/primary.'
       : `Выезды заданы поимённо (§4 шаг 7): ${cfg.exits.join(', ')}.`,
     `Тарьян (§3.3.8) отбросил ${pruned.droppedNodes} вершин и ${(pruned.droppedResidentialM / 1000).toFixed(1)} км жилых улиц, не связанных с городом.`,
+    `Зданий OSM привязано к узлам спроса: ${bld.buildings.length}; отброшено дальше ${BUILDING_RADIUS_M} м: ${bld.dropped}.`,
   ];
 
   const meta: CityMeta = {
@@ -626,7 +709,7 @@ function main(cityId: string): void {
 
   console.log(
     `${cfg.id}: V=${city.V} E=${city.E} S=${city.S} X=${city.X} ` +
-      `pop=${meta.population} dropped=${pruned.droppedNodes} nodes / ${(pruned.droppedResidentialM / 1000).toFixed(1)} km ` +
+      `B=${city.B} pop=${meta.population} dropped=${pruned.droppedNodes} nodes / ${(pruned.droppedResidentialM / 1000).toFixed(1)} km ` +
       `${(buf.byteLength / 1024).toFixed(0)} KB`,
   );
 }

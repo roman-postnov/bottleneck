@@ -30,7 +30,38 @@ const ROUTE_BYTES = MAX_HOPS >> 1;
  */
 const MAX_HOPS_PER_FRAME = 8;
 
-/** Metres a parked car sits from its node. Forty cars on one coordinate are one pixel. */
+/**
+ * Where a parked car stands. Demand lives on NODES, and a node is a junction, so a car parked
+ * at its node stands in the middle of a crossroads. The city file carries OSM building
+ * centroids per node (§3.2), and that is the first choice: a car waits at a house.
+ *
+ * The offset off the centroid is not a driveway -- we have centroids, not outlines, and do not
+ * know which side the street is on. It is there so several cars at one house do not land on
+ * the same pixel.
+ */
+const YARD_HOUSE_MIN_M = 3;
+const YARD_HOUSE_SPAN_M = 5;
+
+/**
+ * How many cars one mapped building may hold before the rest go back to the street.
+ *
+ * OSM coverage is not uniform and the gap is not small: San Francisco has a building for
+ * every 5 residents, Paradise one for every 24 -- four fifths of its demand sits at nodes with
+ * no building drawn at all. Piling forty cars onto the one house that happens to be mapped
+ * says people live there, which is false; the street they are on is the weaker claim and the
+ * true one. Four is already more than a household owns.
+ */
+const YARD_CARS_PER_HOUSE = 4;
+
+/**
+ * Fallback for a node with no building within §4's radius, and for every city whose file
+ * predates the building section. Cars go down the near half of each incident edge, spaced out,
+ * sat off the carriageway the way a driveway is.
+ */
+const YARD_SPAN_M = 130;
+const YARD_LATERAL_MIN_M = 5;
+const YARD_LATERAL_SPAN_M = 7;
+/** Fallback only, for a node with no outgoing edge to line the cars up along. */
 const YARD_RADIUS_M = 30;
 
 export type TracerInit = {
@@ -47,6 +78,10 @@ export type TracerInit = {
   demandNodes: Uint32Array;
   nodeXY: Float32Array;
   maxOutDeg: number;
+  /** [V+1] CSR over building centroids. All zeros when the city has none. */
+  bldOff: Uint32Array;
+  /** [B*2] metre offsets, same origin as nodeXY. */
+  bldXY: Float32Array;
   storage: Float32Array;
   /** [E+1] from the graph view. */
   startIndices: Uint32Array;
@@ -75,6 +110,8 @@ export type TracerField = {
   edgeTo: Uint32Array;
   isExit: Uint8Array;
   nodeXY: Float32Array;
+  bldOff: Uint32Array;
+  bldXY: Float32Array;
   startIndices: Uint32Array;
   vertsM: Float32Array;
   cum: Float32Array;
@@ -263,6 +300,8 @@ export function createTracers(init: TracerInit): TracerField {
     edgeTo: init.edgeTo,
     isExit: init.isExit,
     nodeXY: init.nodeXY,
+    bldOff: init.bldOff,
+    bldXY: init.bldXY,
     startIndices: init.startIndices,
     vertsM: init.vertsM,
     cum: init.cum,
@@ -375,9 +414,39 @@ function edgeBounds(f: TracerField): void {
   }
 }
 
+/**
+ * Writes the point `dist` metres along edge `e`, pushed `lateral` metres to one side of the
+ * carriageway. Walks the polyline the same way writePositions does; only ever runs at setup.
+ */
+function alongEdge(
+  f: TracerField,
+  e: number,
+  dist: number,
+  lateral: number,
+  out: Float32Array,
+  at: number,
+): void {
+  const { startIndices, cum, vertsM } = f;
+  const a = startIndices[e];
+  const b = startIndices[e + 1];
+  let k = a + 1;
+  while (k < b - 1 && cum[k] < dist) k++;
+  const d0 = cum[k - 1];
+  const seg = cum[k] - d0;
+  const t = seg > 0 ? (dist - d0) / seg : 0;
+  const x0 = vertsM[(k - 1) * 2];
+  const y0 = vertsM[(k - 1) * 2 + 1];
+  const dx = vertsM[k * 2] - x0;
+  const dy = vertsM[k * 2 + 1] - y0;
+  const len = Math.sqrt(dx * dx + dy * dy) || 1;
+  out[at] = x0 + dx * t + (-dy / len) * lateral;
+  out[at + 1] = y0 + dy * t + (dx / len) * lateral;
+}
+
 /** One parked car per vehicle of demand, in its node's driveway, at t = 0. */
 function fillYards(f: TracerField, demand0: Float32Array, seed: number): void {
-  const { demandNodes, nodeXY, yardPos, dKey, dRng, dEdge, dNode } = f;
+  const { demandNodes, nodeXY, yardPos, dKey, dRng, dEdge, dNode, csrOff, edgeLen } = f;
+  const { bldOff, bldXY } = f;
   // The remainder carries between nodes so the total lands on round(totalVeh) instead of
   // drifting by a car per node.
   let carry = 0;
@@ -391,6 +460,13 @@ function fillYards(f: TracerField, demand0: Float32Array, seed: number): void {
     if (slot + k > f.cap) k = f.cap - slot;
     f.yardBegin[v] = slot;
     f.yardNext[v] = slot;
+    const bb = bldOff[v];
+    const m = bldOff[v + 1] - bb;
+    const atHouses = Math.min(k, m * YARD_CARS_PER_HOUSE);
+    const ea = csrOff[v];
+    const deg = csrOff[v + 1] - ea;
+    // Rows down each street, so k cars over deg streets stand deg abreast and k/deg deep.
+    const rows = deg > 0 ? Math.ceil((k - atHouses) / deg) : 0;
     for (let j = 0; j < k; j++, slot++) {
       const key = splitmix32(seed ^ splitmix32(Math.imul(v, 0x9e3779b1) + j));
       dKey[slot] = key;
@@ -399,12 +475,37 @@ function fillYards(f: TracerField, demand0: Float32Array, seed: number): void {
       dEdge[slot] = 0;
       f.dState[slot] = PARKED;
       f.dArriveT[slot] = -1;
-      // A deterministic scatter round the node: §10 keeps Math.random out of the model and
-      // there is no reason to let it in here, and forty cars on one coordinate are one pixel.
-      const ang = (key & 0xffff) * (6.283185307179586 / 65536);
-      const rad = YARD_RADIUS_M * Math.sqrt(((key >>> 16) & 0xffff) / 65536);
-      yardPos[slot * 2] = nodeXY[v * 2] + Math.cos(ang) * rad;
-      yardPos[slot * 2 + 1] = nodeXY[v * 2 + 1] + Math.sin(ang) * rad;
+      // Deterministic throughout: §10 keeps Math.random out of the model and there is no reason
+      // to let it in here.
+      if (j < atHouses) {
+        const b = bb + (j % m);
+        const ang = (key & 0xffff) * (6.283185307179586 / 65536);
+        const rad = YARD_HOUSE_MIN_M + (((key >>> 16) & 0xff) / 256) * YARD_HOUSE_SPAN_M;
+        yardPos[slot * 2] = bldXY[b * 2] + Math.cos(ang) * rad;
+        yardPos[slot * 2 + 1] = bldXY[b * 2 + 1] + Math.sin(ang) * rad;
+        continue;
+      }
+      if (deg === 0) {
+        const ang = (key & 0xffff) * (6.283185307179586 / 65536);
+        const rad = YARD_RADIUS_M * Math.sqrt(((key >>> 16) & 0xffff) / 65536);
+        yardPos[slot * 2] = nodeXY[v * 2] + Math.cos(ang) * rad;
+        yardPos[slot * 2 + 1] = nodeXY[v * 2 + 1] + Math.sin(ang) * rad;
+        continue;
+      }
+      const js = j - atHouses;
+      const e = ea + (js % deg);
+      // The NEAR HALF only. Each edge is claimed from both ends, and a car allowed the whole
+      // length would stand outside somebody else's house.
+      const span = Math.min(edgeLen[e] * 0.5, YARD_SPAN_M);
+      const row = (js / deg) | 0;
+      const jitter = ((key >>> 8) & 0xff) / 256 - 0.5;
+      let dist = ((row + 0.5 + jitter * 0.6) / rows) * span;
+      if (dist < 1) dist = 1;
+      // Both kerbs, so a street reads as houses down each side rather than a single file.
+      const side = key & 1 ? 1 : -1;
+      const lateral =
+        side * (YARD_LATERAL_MIN_M + (((key >>> 16) & 0xff) / 256) * YARD_LATERAL_SPAN_M);
+      alongEdge(f, e, dist, lateral, yardPos, slot * 2);
     }
     f.yardEnd[v] = slot;
     f.dither[v] = splitmix32(Math.imul(v, 0x85ebca6b) ^ seed) / 4294967296;

@@ -56,11 +56,17 @@ export type City = {
   X: number;
   G: number;
   NS: number;
+  /** Buildings. 0 when the file predates the section (§3.1). */
+  B: number;
 
   lat: Int32Array;
   lon: Int32Array;
   geomOff: Uint32Array;
   geomPts: Int16Array;
+  /** [V+1] CSR over buildings by owning node, the shape of geomOff. */
+  bldOff: Uint32Array;
+  /** [B*2] building centroid as a delta from its owning node, in GEOM_SCALE units. */
+  bldPts: Int16Array;
 
   csrOff: Uint32Array;
   edgeTo: Uint32Array;

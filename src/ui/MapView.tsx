@@ -217,6 +217,8 @@ export function MapView(): React.ReactElement {
             demandNodes: msg.demandNodes,
             nodeXY: msg.nodeXY,
             maxOutDeg: msg.maxOutDeg,
+            bldOff: msg.bldOff,
+            bldXY: msg.bldXY,
             storage: msg.storage,
             startIndices: msg.startIndices,
             vertsM,

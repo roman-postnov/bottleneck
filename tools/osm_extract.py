@@ -20,6 +20,14 @@ HIGHWAY = {
     "motorway_link", "trunk_link", "primary_link", "secondary_link", "tertiary_link",
 }
 
+# What counts as a house. An allow-list, not a deny-list: OSM invents building values faster
+# than anyone maintains an exclusion list, and `building=yes` -- the majority -- has to be in
+# whichever list it lands in, so it is named here on purpose.
+BUILDING = {
+    "house", "residential", "apartments", "detached", "semidetached_house",
+    "terrace", "yes", "bungalow", "dormitory",
+}
+
 # Only tags §4 actually reads. Carrying the rest would multiply the intermediate file by ten.
 KEEP_TAGS = (
     "highway", "oneway", "junction", "lanes", "lanes:forward", "lanes:backward",
@@ -33,6 +41,52 @@ def wanted(tags) -> bool:
     if tags.get("access") in ("no", "private"):
         return False
     return tags.get("area") != "yes"
+
+
+def centroid(nodes) -> tuple[float, float] | None:
+    """Mean of the outline's vertices. The closing node repeats the first one and would weight
+    that corner twice."""
+    lat = lon = 0.0
+    k = 0
+    last = len(nodes) - 1
+    for i, n in enumerate(nodes):
+        if not n.location.valid():
+            continue
+        if i == last and nodes[0].ref == n.ref:
+            continue
+        lat += n.location.lat
+        lon += n.location.lon
+        k += 1
+    if k == 0:
+        return None
+    return lat / k, lon / k
+
+
+def scan_buildings(pbf, bbox) -> tuple[list[int], list[int], int]:
+    """Second pass over the same file (§4). Multipolygon buildings arrive as relations and are
+    skipped here -- a minority, and named in docs/LIMITATIONS.md rather than lost quietly."""
+    min_lat, min_lon, max_lat, max_lon = bbox
+    lats: list[int] = []
+    lons: list[int] = []
+    seen = 0
+    fp = osmium.FileProcessor(pbf).with_locations().with_filter(
+        osmium.filter.KeyFilter("building")
+    )
+    for obj in fp:
+        if not obj.is_way():
+            continue
+        seen += 1
+        if obj.tags.get("building") not in BUILDING:
+            continue
+        c = centroid(obj.nodes)
+        if c is None:
+            continue
+        lat, lon = c
+        if not (min_lat <= lat <= max_lat and min_lon <= lon <= max_lon):
+            continue
+        lats.append(round(lat * 1e7))
+        lons.append(round(lon * 1e7))
+    return lats, lons, seen
 
 
 def main() -> int:
@@ -87,6 +141,8 @@ def main() -> int:
             "t": {k: obj.tags[k] for k in KEEP_TAGS if k in obj.tags},
         })
 
+    bld_lat, bld_lon, bld_seen = scan_buildings(pbf, cfg["bbox"])
+
     ids = sorted(node_lat)
     out = {
         "id": city_id,
@@ -97,6 +153,7 @@ def main() -> int:
             "lon": [node_lon[i] for i in ids],
         },
         "ways": ways,
+        "buildings": {"lat": bld_lat, "lon": bld_lon},
     }
     dest = os.path.join(root, "data", "extract", city_id + ".json")
     os.makedirs(os.path.dirname(dest), exist_ok=True)
@@ -104,7 +161,8 @@ def main() -> int:
         json.dump(out, f, separators=(",", ":"))
 
     print(f"{city_id}: {seen} highway ways scanned, {len(ways)} kept, "
-          f"{len(ids)} nodes -> {dest} ({os.path.getsize(dest) / 1e6:.1f} MB)")
+          f"{len(ids)} nodes, {bld_seen} buildings scanned, {len(bld_lat)} kept "
+          f"-> {dest} ({os.path.getsize(dest) / 1e6:.1f} MB)")
     return 0
 
 

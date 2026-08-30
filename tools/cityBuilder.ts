@@ -52,11 +52,15 @@ export type EdgeOpts = Partial<Omit<EdgeRec, 'from' | 'to' | 'twinTmp'>>;
 
 export type SourceRec = { node: number; pop: number; noCar: number; zone: number };
 
+/** A building centroid already attached to the node whose driveway it counts as (§4 step 8bis). */
+export type BuildingRec = { node: number; lat: number; lon: number };
+
 export class CityBuilder {
   nodes: LatLng[] = [];
   edges: EdgeRec[] = [];
   sources: SourceRec[] = [];
   exitNodes: number[] = [];
+  buildings: BuildingRec[] = [];
   names: string[] = [''];
   nameIds = new Map<string, number>([['', 0]]);
 
@@ -114,6 +118,10 @@ export class CityBuilder {
 
   source(node: number, pop: number, noCar = 0, zone = 0): void {
     this.sources.push({ node, pop, noCar, zone });
+  }
+
+  building(node: number, lat: number, lon: number): void {
+    this.buildings.push({ node, lat, lon });
   }
 
   exit(node: number): void {
@@ -261,6 +269,28 @@ export class CityBuilder {
     parts[SECTION.EXIT] = exitNode;
     parts[SECTION.NAME_ID] = nameId;
     parts[SECTION.NAME_BLOB] = blob;
+
+    // Absent, not empty, when there are no buildings: an offset of 0 is what tells parseCity
+    // the file predates the section, and the synthetic fixtures rely on staying byte-identical.
+    if (this.buildings.length > 0) {
+      const bldOff = new Uint32Array(V + 1);
+      for (const b of this.buildings) bldOff[b.node + 1]++;
+      for (let v = 0; v < V; v++) bldOff[v + 1] += bldOff[v];
+      const cur = Uint32Array.from(bldOff.subarray(0, V));
+      const bldPts = new Int16Array(this.buildings.length * 2);
+      for (const b of this.buildings) {
+        const dLat = Math.round((Math.round(b.lat * 1e7) - latI[b.node]) / GEOM_SCALE);
+        const dLon = Math.round((Math.round(b.lon * 1e7) - lonI[b.node]) / GEOM_SCALE);
+        if (Math.abs(dLat) > GEOM_MAX_DELTA || Math.abs(dLon) > GEOM_MAX_DELTA) {
+          throw new Error(`building at ${b.lat},${b.lon} is too far from node ${b.node} for Int16`);
+        }
+        const k = cur[b.node]++;
+        bldPts[k * 2] = dLat;
+        bldPts[k * 2 + 1] = dLon;
+      }
+      parts[SECTION.BLD_OFF] = bldOff;
+      parts[SECTION.BLD_PTS] = bldPts;
+    }
 
     const align4 = (n: number): number => (n + 3) & ~3;
     const offsets = new Uint32Array(SECTION_SLOTS);

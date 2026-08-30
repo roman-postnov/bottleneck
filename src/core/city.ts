@@ -7,7 +7,7 @@ import type { City, CityMeta, EdgeIdx } from './types.ts';
 export const MAGIC = 0x4b434e42; // "BNCK" little-endian
 export const FORMAT_VERSION = 2;
 export const HEADER_BYTES = 128;
-export const SECTION_SLOTS = 20; // 18 used, 2 reserved for additive growth
+export const SECTION_SLOTS = 20; // all 20 used; the next additive section needs version 3
 export const NO_TWIN = 0xffffffff;
 
 export const SECTION = {
@@ -29,6 +29,8 @@ export const SECTION = {
   EXIT: 15,
   NAME_ID: 16,
   NAME_BLOB: 17,
+  BLD_OFF: 18,
+  BLD_PTS: 19,
 } as const;
 
 export const FLAG = {
@@ -80,6 +82,16 @@ export function parseCity(buffer: ArrayBuffer, meta: CityMeta | Record<string, n
   const at = <T>(s: number, Type: TypedArrayCtor<T>, len: number): T =>
     new Type(buffer, off[s], len);
 
+  // Buildings are the one section a file may lack: the committed synthetic fixtures predate
+  // it, and §3.1's reserve is additive precisely so an old file stays readable. Offset 0 is
+  // the marker -- no section can start there, the header ends at 128.
+  const hasBld = off[SECTION.BLD_OFF] !== 0;
+  const bldOff = hasBld
+    ? at(SECTION.BLD_OFF, Uint32Array, V + 1)
+    : new Uint32Array(V + 1);
+  const B = bldOff[V];
+  const bldPts = hasBld ? at(SECTION.BLD_PTS, Int16Array, B * 2) : new Int16Array(0);
+
   const csrOff = at(SECTION.CSR_OFF, Uint32Array, V + 1);
   const edgeTo = at(SECTION.EDGE_TO, Uint32Array, E);
   const exitNode = at(SECTION.EXIT, Uint32Array, X);
@@ -99,6 +111,7 @@ export function parseCity(buffer: ArrayBuffer, meta: CityMeta | Record<string, n
     X,
     G,
     NS,
+    B,
     lat: at(SECTION.NODE_LAT, Int32Array, V),
     lon: at(SECTION.NODE_LON, Int32Array, V),
     csrOff,
@@ -117,6 +130,8 @@ export function parseCity(buffer: ArrayBuffer, meta: CityMeta | Record<string, n
     exitNode,
     nameId,
     nameBlob,
+    bldOff,
+    bldPts,
     ...derived,
     ...names,
   };
@@ -339,6 +354,18 @@ export function validateCity(city: City): string[] {
       err.push(`11: node ${srcNode[i]} is both a SRC and an EXIT`);
       break;
     }
+  }
+
+  const { V: nV, bldOff, bldPts } = city;
+  if (bldOff[0] !== 0) err.push(`13: BLD_OFF[0]=${bldOff[0]}, expected 0`);
+  for (let v = 0; v < nV; v++) {
+    if (bldOff[v + 1] < bldOff[v]) {
+      err.push(`13: BLD_OFF decreases at node ${v}`);
+      break;
+    }
+  }
+  if (bldOff[nV] * 2 !== bldPts.length) {
+    err.push(`13: BLD_OFF[V]=${bldOff[nV]}, BLD_PTS holds ${bldPts.length / 2} points`);
   }
 
   let pop = 0;

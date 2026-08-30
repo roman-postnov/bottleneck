@@ -56,6 +56,10 @@ export type ReadyMessage = {
   nodeXY: Float32Array;
   /** Gates the 4-bit route encoding of the trail: it needs maxOutDeg <= 16. */
   maxOutDeg: number;
+  /** [V+1] CSR over building centroids by node. All zeros when the city has none. */
+  bldOff: Uint32Array;
+  /** [B*2] building centroids as metre offsets from meta.center, like nodeXY. */
+  bldXY: Float32Array;
 };
 
 export type FrameMessage = {

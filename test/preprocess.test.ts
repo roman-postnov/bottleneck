@@ -13,6 +13,8 @@ import {
   polylineLengthM,
   pruneToLargestComponent,
   assignPopulation,
+  assignBuildings,
+  BUILDING_RADIUS_M,
   splitLongArcs,
   vertexNodes,
 } from '../tools/preprocess.ts';
@@ -263,5 +265,66 @@ describe('§4 steps 8 and 11: population and Tarjan', () => {
     const pop = assignPopulation(pruneToLargestComponent(g).graph, 800);
     // Node 1 touches only the short street, node 3 only the long one, node 2 touches both.
     expect(pop[0] / pop[2]).toBeCloseTo(1 / 3, 2);
+  });
+});
+
+describe('§4 step 8bis: buildings attach to the node that releases their cars', () => {
+  /** metres north of the equator, as a latitude. */
+  const north = (m: number): number => m / 111320;
+
+  function twoStreets(): { g: Graph; pop: Float64Array } {
+    const c = new Map<number, LatLng>([
+      [1, [0.5, 0.1]],
+      [2, [0.5, 0.2]],
+      [3, [0.5, 1.5]],
+    ]);
+    const { runs, stubs } = clipWays(
+      [
+        way(10, [1, 2], { highway: 'residential' }),
+        way(11, [2, 3], { highway: 'primary' }),
+      ],
+      c,
+      BBOX,
+    );
+    const g = pruneToLargestComponent(buildArcs(runs, c, vertexNodes(runs, stubs), stubs)).graph;
+    return { g, pop: assignPopulation(g, 1000) };
+  }
+
+  it('takes the nearest node carrying demand', () => {
+    const { g, pop } = twoStreets();
+    const near0 = [g.nodes[0][0] + north(20), g.nodes[0][1]];
+    const near1 = [g.nodes[1][0] - north(15), g.nodes[1][1]];
+    const r = assignBuildings(g, pop, {
+      lat: [Math.round(near0[0] * 1e7), Math.round(near1[0] * 1e7)],
+      lon: [Math.round(near0[1] * 1e7), Math.round(near1[1] * 1e7)],
+    });
+    expect(r.dropped).toBe(0);
+    expect(r.buildings.map((b) => b.node)).toEqual([0, 1]);
+  });
+
+  it('drops a building further than the radius from every demand node', () => {
+    const { g, pop } = twoStreets();
+    const far = g.nodes[0][0] + north(BUILDING_RADIUS_M + 50);
+    const r = assignBuildings(g, pop, {
+      lat: [Math.round(far * 1e7)],
+      lon: [Math.round(g.nodes[0][1] * 1e7)],
+    });
+    expect(r.buildings).toHaveLength(0);
+    expect(r.dropped).toBe(1);
+  });
+
+  it('never attaches to an exit, which carries no demand and would strand the dot', () => {
+    const { g, pop } = twoStreets();
+    const [x] = [...g.exits];
+    const r = assignBuildings(g, pop, {
+      lat: [Math.round(g.nodes[x][0] * 1e7)],
+      lon: [Math.round(g.nodes[x][1] * 1e7)],
+    });
+    for (const b of r.buildings) expect(pop[b.node]).toBeGreaterThan(0);
+  });
+
+  it('a city with no building section yields none and drops none', () => {
+    const { g, pop } = twoStreets();
+    expect(assignBuildings(g, pop, { lat: [], lon: [] })).toEqual({ buildings: [], dropped: 0 });
   });
 });

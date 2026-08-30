@@ -9,6 +9,7 @@ import {
 import { capVehS, ttSec, storageVeh, CLASS_CODE, HIGHWAY_CLASSES } from '../src/core/params.ts';
 import type { LatLng } from '../src/core/types.ts';
 import { publicCity } from './helpers.ts';
+import { CityBuilder } from '../tools/cityBuilder.ts';
 
 const FIXTURES = ['grid20', 'line10', 'single', 'island8'];
 
@@ -195,6 +196,49 @@ describe('geometry', () => {
     const k = c.geomOff[e];
     const expected = c.lat[c.edgeFrom[e]] + c.geomPts[k * 2] * GEOM_SCALE;
     expect(Math.round(edgePolyline(c, e)[1][0] * 1e7)).toBe(expected);
+  });
+});
+
+describe('buildings (§3.2, slots 18-19)', () => {
+  it('the committed fixtures predate the section and still load', () => {
+    for (const name of FIXTURES) {
+      const c = load(name);
+      expect(c.B).toBe(0);
+      expect(c.bldPts.length).toBe(0);
+      expect(c.bldOff.length).toBe(c.V + 1);
+      expect(c.bldOff[c.V]).toBe(0);
+      expect(validateCity(c)).toEqual([]);
+    }
+  });
+
+  it('centroids round-trip through the writer as deltas from their own node', () => {
+    const b = new CityBuilder();
+    const n0 = b.node(47.58, -122.23);
+    const n1 = b.node(47.585, -122.225);
+    b.pair(n0, n1, { cls: CLASS_CODE.residential });
+    b.exit(n1);
+    b.source(n0, 100);
+    // 1e-6 degrees is the quantisation, so a coordinate off the grid must land on it.
+    b.building(n0, 47.580_5, -122.229_5);
+    b.building(n0, 47.579_9, -122.230_1);
+    b.building(n1, 47.585_2, -122.224_8);
+
+    const c = parseCity(b.serialize());
+    expect(c.B).toBe(3);
+    expect(Array.from(c.bldOff)).toEqual([0, 2, 3]);
+    expect(validateCity(c)).toEqual([]);
+
+    const at = (k: number): LatLng => {
+      const v = k < 2 ? 0 : 1;
+      return [
+        (c.lat[v] + c.bldPts[k * 2] * GEOM_SCALE) / 1e7,
+        (c.lon[v] + c.bldPts[k * 2 + 1] * GEOM_SCALE) / 1e7,
+      ];
+    };
+    expect(at(0)[0]).toBeCloseTo(47.5805, 6);
+    expect(at(0)[1]).toBeCloseTo(-122.2295, 6);
+    expect(at(2)[0]).toBeCloseTo(47.5852, 6);
+    expect(at(2)[1]).toBeCloseTo(-122.2248, 6);
   });
 });
 

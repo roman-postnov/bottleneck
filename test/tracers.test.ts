@@ -24,12 +24,34 @@ import {
   type TracerInit,
 } from '../src/render/tracers.ts';
 
+/** The CSR pair the ready message carries. An empty list is a city whose file predates §3.2's
+ *  building section, which is every committed fixture. */
+function buildings(
+  V: number,
+  list: Array<[node: number, x: number, y: number]>,
+): { bldOff: Uint32Array; bldXY: Float32Array } {
+  const sorted = [...list].sort((a, b) => a[0] - b[0]);
+  const bldOff = new Uint32Array(V + 1);
+  for (const [v] of sorted) bldOff[v + 1]++;
+  for (let v = 0; v < V; v++) bldOff[v + 1] += bldOff[v];
+  const bldXY = new Float32Array(sorted.length * 2);
+  sorted.forEach(([, x, y], i) => {
+    bldXY[i * 2] = x;
+    bldXY[i * 2 + 1] = y;
+  });
+  return { bldOff, bldXY };
+}
+
 const TT = 10;
 const STORAGE = 100;
 const SPACING_M = 1000;
 
 /** A chain of N edges: node 0 holds the demand, node N is the exit. */
-function lineGraph(N: number, demand: number, opts: { ttSec?: number; storage?: number } = {}) {
+function lineGraph(
+  N: number,
+  demand: number,
+  opts: { ttSec?: number; storage?: number; bld?: Array<[node: number, x: number, y: number]> } = {},
+) {
   const V = N + 1;
   const E = N;
   const csrOff = new Uint32Array(V + 1);
@@ -70,6 +92,7 @@ function lineGraph(N: number, demand: number, opts: { ttSec?: number; storage?: 
     demandNodes: Uint32Array.from([0]),
     nodeXY,
     maxOutDeg: 1,
+    ...buildings(V, opts.bld ?? []),
     storage,
     startIndices,
     vertsM,
@@ -129,18 +152,102 @@ describe('yards: one dot per vehicle, before anyone moves', () => {
     expect(writeParked(f)).toBe(5);
   });
 
-  it('parked cars sit near their node, not on top of it', () => {
+  it('parked cars line the streets that meet their node, not the junction itself', () => {
+    // Node 0 owns one 1000 m street running east along y = 0.
     const { init } = lineGraph(4, 50);
     const f = createTracers(init);
     writeParked(f);
+    const xs: number[] = [];
     const seen = new Set<string>();
     for (let i = 0; i < f.parkedCount; i++) {
       const x = f.parkedPos[i * 2];
       const y = f.parkedPos[i * 2 + 1];
-      expect(Math.hypot(x, y)).toBeLessThanOrEqual(31);
+      xs.push(x);
       seen.add(`${x.toFixed(3)},${y.toFixed(3)}`);
+      // Down the near half of the street, never past it into the next node's frontage.
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThanOrEqual(140);
+      // Off the carriageway, on one kerb or the other.
+      expect(Math.abs(y)).toBeGreaterThanOrEqual(5);
+      expect(Math.abs(y)).toBeLessThanOrEqual(12);
     }
-    expect(seen.size).toBeGreaterThan(40);
+    expect(seen.size).toBe(50);
+    // Strung out along the street rather than heaped at the junction: a disc of 30 m would put
+    // every one of them inside the first 30 m.
+    expect(Math.max(...xs)).toBeGreaterThan(90);
+    const nearJunction = xs.filter((x) => x < 30).length;
+    expect(nearJunction).toBeLessThan(20);
+  });
+
+  it('parked cars stand at the buildings of their node when the city has them', () => {
+    const houses: Array<[number, number, number]> = [
+      [0, 40, 60],
+      [0, 90, -70],
+      [0, 300, 20],
+    ];
+    const { init } = lineGraph(4, 12, { bld: houses });
+    const f = createTracers(init);
+    expect(writeParked(f)).toBe(12);
+    const perHouse = [0, 0, 0];
+    for (let i = 0; i < 12; i++) {
+      const x = f.parkedPos[i * 2];
+      const y = f.parkedPos[i * 2 + 1];
+      const k = houses.findIndex(([, hx, hy]) => Math.hypot(x - hx, y - hy) <= 8);
+      expect(k).toBeGreaterThanOrEqual(0);
+      perHouse[k]++;
+      // Off the centroid, because a centroid is not a driveway and two cars must not coincide.
+      expect(Math.hypot(x - houses[k][1], y - houses[k][2])).toBeGreaterThanOrEqual(3);
+    }
+    // 12 cars over 3 houses, round robin.
+    expect(perHouse).toEqual([4, 4, 4]);
+  });
+
+  it('cars beyond what the mapped houses hold go back to the street', () => {
+    // One house for ten cars: Paradise, where OSM drew a fraction of the town.
+    const { init } = lineGraph(4, 10, { bld: [[0, 40, 60]] });
+    const f = createTracers(init);
+    expect(writeParked(f)).toBe(10);
+    let atHouse = 0;
+    for (let i = 0; i < 10; i++) {
+      const d = Math.hypot(f.parkedPos[i * 2] - 40, f.parkedPos[i * 2 + 1] - 60);
+      if (d <= 8) atHouse++;
+      else expect(Math.abs(f.parkedPos[i * 2 + 1])).toBeLessThanOrEqual(12); // on a kerb
+    }
+    expect(atHouse).toBe(4);
+  });
+
+  it('a node with no building falls back to the street layout', () => {
+    // Node 1 has the houses; node 0, which holds the demand, has none.
+    const { init } = lineGraph(4, 20, { bld: [[1, 1000, 0]] });
+    const withHouses = createTracers(init);
+    const plain = createTracers(lineGraph(4, 20).init);
+    writeParked(withHouses);
+    writeParked(plain);
+    expect(Array.from(withHouses.parkedPos)).toEqual(Array.from(plain.parkedPos));
+  });
+
+  it('the same city places its cars in the same places twice', () => {
+    const bld: Array<[number, number, number]> = [
+      [0, 15, 5],
+      [0, 80, -30],
+    ];
+    const a = createTracers(lineGraph(3, 9, { bld }).init);
+    const b = createTracers(lineGraph(3, 9, { bld }).init);
+    writeParked(a);
+    writeParked(b);
+    expect(Array.from(a.parkedPos)).toEqual(Array.from(b.parkedPos));
+  });
+
+  it('a node with no street to line up along still gets its cars placed', () => {
+    const { init } = lineGraph(2, 6);
+    // Strip node 0 of its out-edges, which is what a sink node looks like.
+    const csrOff = Uint32Array.from(init.csrOff);
+    csrOff[1] = 0;
+    const f = createTracers({ ...init, csrOff });
+    expect(writeParked(f)).toBe(6);
+    for (let i = 0; i < 6; i++) {
+      expect(Math.hypot(f.parkedPos[i * 2], f.parkedPos[i * 2 + 1])).toBeLessThanOrEqual(31);
+    }
   });
 });
 
@@ -368,6 +475,7 @@ describe('routes: the recorded decisions replay to the edges actually taken', ()
       ttSec: new Uint16Array(E).fill(TT),
       split: Float32Array.from([1, 0.5, 0.5]),
       demand0: Float32Array.from([200, 0, 0, 0]),
+    ...buildings(V, []),
       demandNodes: Uint32Array.from([0]),
       nodeXY: new Float32Array(V * 2),
       maxOutDeg: 2,

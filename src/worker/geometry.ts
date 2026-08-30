@@ -28,6 +28,24 @@ export function buildNodeXY(city: City, center: [lat: number, lon: number]): Flo
   return out;
 }
 
+/** Building centroids in the same metre offsets as buildNodeXY. Empty when the file has no
+ *  building section (§3.1). */
+export function buildBuildingXY(city: City, center: [lat: number, lon: number]): Float32Array {
+  const out = new Float32Array(city.B * 2);
+  const lat0 = center[0];
+  const lon0 = center[1];
+  const mPerLon = 111320 * Math.cos(lat0 * (Math.PI / 180));
+  for (let v = 0; v < city.V; v++) {
+    for (let b = city.bldOff[v]; b < city.bldOff[v + 1]; b++) {
+      const lat = city.lat[v] + city.bldPts[b * 2] * GEOM_SCALE;
+      const lon = city.lon[v] + city.bldPts[b * 2 + 1] * GEOM_SCALE;
+      out[b * 2] = (lon / 1e7 - lon0) * mPerLon;
+      out[b * 2 + 1] = (lat / 1e7 - lat0) * 110540;
+    }
+  }
+  return out;
+}
+
 export function buildEdgeGeometry(city: City): EdgeGeometry {
   const { E, geomOff } = city;
   const vertices = 2 * E + geomOff[E];
