@@ -83,6 +83,23 @@ function skywayContraflow(c: City): Edit[] {
 }
 
 /**
+ * One more lane out, southbound only -- §18 preset 6, and the counterpart to the contraflow
+ * above. Contraflow costs a morning and some cones; a lane costs years and a road project.
+ * Both run against the same closures, so the ladder no-contraflow -> 2018 -> plus-lane prices
+ * an operational measure against a capital one on the same graph.
+ *
+ * Not stacked on top of the contraflow: the northbound carriageway stays open here, which is
+ * what makes this a different intervention rather than a bigger one.
+ */
+function skywayPlusLane(c: City): Edit[] {
+  const p = resolveParams(defaultScenario('paradise'));
+  const { cost } = createSim(c, p).field;
+  return edgesNamed(c, 'Skyway')
+    .filter((e) => cost[c.edgeTo[e]] < cost[c.edgeFrom[e]])
+    .map((e) => ({ op: 'lanes' as const, edgeId: e, lanes: c.lanes[e] + 1 }));
+}
+
+/**
  * Zero of model time is 08:00 on 8 November 2018 (TF-ET 2).
  *
  * Built from the timeline in docs/VALIDATION.md §2.1, NOT from Table 29. The table's
@@ -136,6 +153,10 @@ write('paradise-open-network', 'Paradise — if the fire had closed nothing', {
   ...noSignal('paradise'),
   edits: contraflow,
 });
+write('paradise-plus-lane', 'Paradise — with one more lane out', {
+  ...noSignal('paradise'),
+  edits: [...skywayPlusLane(paradise), ...campFireClosures(paradise)],
+});
 write('mercer-baseline', 'Mercer Island — the small case', defaultScenario('mercer'));
 
 const sf = city('sf');
@@ -147,6 +168,10 @@ write('sf-bridge-closed', 'San Francisco — Bay Bridge closed', {
   ...defaultScenario('sf'),
   edits: bayBridge.map((e) => ({ op: 'close' as const, edgeId: e })),
 });
+
+// §18 preset 7. Nothing to intervene on: one road out, and the only lever left is leaving
+// earlier -- which is a scenario parameter, not an edit to the network.
+write('keys-baseline', 'Florida Keys — one road out, 180 km of it', defaultScenario('keys'));
 
 writeFileSync('public/scenarios/index.json', JSON.stringify(index, null, 2) + '\n');
 console.log(`index.json: ${index.length} presets`);

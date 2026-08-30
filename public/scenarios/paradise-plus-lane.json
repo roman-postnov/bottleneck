@@ -1,0 +1,371 @@
+{
+  "v": 1,
+  "city": "paradise",
+  "seed": 20261101,
+  "demand": {
+    "occupancy": 2.2,
+    "participation": 1,
+    "mobilizationHalfMin": 90
+  },
+  "supply": {
+    "satFlowPerLane": 1800,
+    "jamSpacingM": 7.5,
+    "speedFactor": 1,
+    "srcInjectLanes": 1
+  },
+  "routing": {
+    "informed": 0,
+    "reoptSec": 300,
+    "logitTheta": 0.15,
+    "splitEpsilon": 0.01,
+    "ttSmoothing": 0.3
+  },
+  "edits": [
+    {
+      "op": "lanes",
+      "edgeId": 72,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 193,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 295,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 427,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 524,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 597,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 623,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 726,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 735,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 910,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 1246,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 1372,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 1473,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 1474,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 1509,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 1510,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 1651,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 1662,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 1695,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 1774,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 1910,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 1944,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 1955,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 2101,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 2272,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 2293,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 2311,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 2337,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 2434,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 2456,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 2462,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 2487,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 2544,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 2606,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 2655,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 2694,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 2741,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 2783,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 2792,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 2839,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 2943,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 3068,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 3105,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 3170,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 3416,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 3479,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 3505,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 3548,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 3552,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 3713,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 3870,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 3879,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 4000,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 4002,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 4014,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 4024,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 4072,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 4102,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 4164,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 4168,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 4170,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 4190,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 4247,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 4255,
+      "lanes": 3
+    },
+    {
+      "op": "lanes",
+      "edgeId": 4273,
+      "lanes": 3
+    },
+    {
+      "op": "close",
+      "edgeId": 3842,
+      "atMin": 45
+    },
+    {
+      "op": "close",
+      "edgeId": 1589,
+      "atMin": 120
+    },
+    {
+      "op": "close",
+      "edgeId": 2798,
+      "atMin": 270
+    },
+    {
+      "op": "lanes",
+      "edgeId": 1589,
+      "lanes": 1,
+      "atMin": 300
+    }
+  ]
+}

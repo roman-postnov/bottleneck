@@ -359,7 +359,7 @@ describe('validator catches corruption', () => {
 describe('the cities built by the preprocessor', () => {
   // The fixtures are written by the same repository that reads them, so they can only prove
   // the writer and the loader agree. These two come out of OpenStreetMap.
-  for (const id of ['mercer', 'paradise', 'sf']) {
+  for (const id of ['mercer', 'paradise', 'sf', 'keys']) {
     it(`${id}.bin passes every invariant of §3.3`, () => {
       expect(validateCity(publicCity(id))).toEqual([]);
     });

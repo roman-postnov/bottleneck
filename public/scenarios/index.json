@@ -15,6 +15,11 @@
     "label": "Paradise — if the fire had closed nothing"
   },
   {
+    "id": "paradise-plus-lane",
+    "city": "paradise",
+    "label": "Paradise — with one more lane out"
+  },
+  {
     "id": "mercer-baseline",
     "city": "mercer",
     "label": "Mercer Island — the small case"
@@ -28,5 +33,10 @@
     "id": "sf-bridge-closed",
     "city": "sf",
     "label": "San Francisco — Bay Bridge closed"
+  },
+  {
+    "id": "keys-baseline",
+    "city": "keys",
+    "label": "Florida Keys — one road out, 180 km of it"
   }
 ]

@@ -1,0 +1,21 @@
+{
+  "id": "keys",
+  "name": "Florida Keys, FL",
+  "blurb": "82 874 жителя на цепи островов длиной 180 км. Наружу — одна дорога, US-1.",
+  "pbf": "data/raw/florida-latest.osm.pbf",
+  "bbox": [
+    24.5,
+    -82.0,
+    25.3,
+    -80.2
+  ],
+  "center": [24.93, -81.08],
+  "zoom": 9,
+  "population": 82874,
+  "populationSource": "U.S. Census Bureau, 2020 Decennial Census, Monroe County, Florida (материковая часть округа — Эверглейдс — практически не заселена, поэтому число относится к цепи)",
+  "carlessShare": null,
+  "carlessSource": null,
+  "popMode": "roadlength",
+  "exits": ["US 1", "Overseas Highway", "Card Sound Road"],
+  "smallCity": true
+}
