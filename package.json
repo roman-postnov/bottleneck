@@ -20,19 +20,19 @@
     "validate:sf": "node tools/validate-sf.ts"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.10",
-    "@types/node": "^26.2.0",
+    "@biomejs/biome": "2.5.11",
+    "@types/node": "^26.4.0",
     "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
-    "typescript": "5.9.3",
-    "vite": "^7.1.5",
-    "vitest": "^3.2.4"
+    "@types/react-dom": "^19.2.5",
+    "typescript": "7.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
   },
   "dependencies": {
     "@deck.gl/core": "^9.3.10",
     "@deck.gl/extensions": "^9.3.10",
     "@deck.gl/layers": "^9.3.10",
-    "maplibre-gl": "^6.5.0",
+    "maplibre-gl": "^6.6.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   }
