@@ -15,6 +15,16 @@ export type ProbeResult = Extract<WorkerToMain, { type: 'probeResult' }>;
 
 export type PresetInfo = { id: string; city: string; label: string };
 
+/**
+ * What the UI needs off the ready message, and nothing else. Picked field by field rather than
+ * Omit-ed: `ready` now also carries the graph for the tracers (§13.2), and a dozen typed arrays
+ * the length of E have no business sitting in React state.
+ */
+export type ReadyInfo = Pick<
+  ReadyMessage,
+  'E' | 'V' | 'meta' | 'totalVeh' | 'maxFlowVehH' | 'cutEdges'
+>;
+
 /** Milliseconds per frame, split the way §13 splits the frame loop. */
 export type FrameCost = {
   total: number;
@@ -23,7 +33,28 @@ export type FrameCost = {
   place: number;
   upload: number;
   dots: number;
+  parked: number;
+  stuck: number;
+  /** max |dots on an edge - n[e]|: the self-check on the Newell placement of §13.2. */
+  dotErr: number;
   zoom: number;
+};
+
+/** The car being followed. Pushed through the store on a throttle, never per frame. */
+export type FollowedCar = {
+  /** Slot index, which is a stable car id for the whole run: slots are never reused. */
+  slot: number;
+  state: 'parked' | 'moving' | 'arrived' | 'stuck';
+  /** Simulated seconds. -1 before it left the driveway. */
+  departedAt: number;
+  /** Simulated seconds. -1 until it leaves the city. */
+  arrivedAt: number;
+  /** Simulated seconds it has been travelling. */
+  elapsed: number;
+  hops: number;
+  routeTruncated: boolean;
+  originEdgeId: number;
+  currentEdgeId: number;
 };
 
 export type UiState = {
@@ -34,7 +65,7 @@ export type UiState = {
   scenario: Scenario | null;
   status: RunStatus;
   error: string | null;
-  ready: Omit<ReadyMessage, 'type' | 'positions' | 'startIndices' | 'vertexOff' | 'storage'> | null;
+  ready: ReadyInfo | null;
   clock: { t: number; evacuated: number; enRoute: number; notDeparted: number; actualX: number };
   curve: number[];
   metrics: Metrics | null;
@@ -43,8 +74,9 @@ export type UiState = {
   showCut: boolean;
   theme: Theme;
   particles: boolean;
-  /** §13.2 names 40 000 as the budget; it is a default here, not a ceiling. */
-  particleCap: number;
+  /** Cars still in a driveway. The whole fleet at t = 0, so it is worth being able to hide. */
+  showParked: boolean;
+  followed: FollowedCar | null;
   perf: FrameCost | null;
   /** T90 of the last completed run that carried no edits, for the delta an intervention
    *  is judged by. Cleared when the city changes. */
@@ -72,7 +104,8 @@ const initial: UiState = {
   showCut: false,
   theme: 'light',
   particles: true,
-  particleCap: 40000,
+  showParked: true,
+  followed: null,
   perf: null,
   baselineT90: null,
   link: null,

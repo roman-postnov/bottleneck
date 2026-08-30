@@ -5,8 +5,6 @@ import { setState, useStore } from '../main/state.ts';
 import type { CityMeta } from '../core/types.ts';
 
 const SPEEDS = [1, 10, 60, 120, 300, 600];
-const CAPS = [10000, 40000, 100000, 200000];
-
 
 /** Elapsed, not a wall clock: `22:41` was being read as twenty to eleven at night. */
 function elapsed(sec: number): string {
@@ -29,7 +27,7 @@ export function Controls(): React.ReactElement {
   const ready = useStore((s) => s.ready);
   const showCut = useStore((s) => s.showCut);
   const particles = useStore((s) => s.particles);
-  const particleCap = useStore((s) => s.particleCap);
+  const showParked = useStore((s) => s.showParked);
 
   const running = status === 'running';
   const pct = ready && ready.totalVeh > 0 ? clock.evacuated / ready.totalVeh : 0;
@@ -178,19 +176,14 @@ export function Controls(): React.ReactElement {
             show traffic
           </label>
           {particles && (
-            <div className="row">
-              <label>Dots</label>
-              <select
-                value={particleCap}
-                onChange={(e) => setState({ particleCap: Number(e.target.value) })}
-              >
-                {CAPS.map((c) => (
-                  <option key={c} value={c}>
-                    {(c / 1000).toFixed(0)}k
-                  </option>
-                ))}
-              </select>
-            </div>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={showParked}
+                onChange={(e) => setState({ showParked: e.target.checked })}
+              />
+              cars still in driveways
+            </label>
           )}
         </>
       )}

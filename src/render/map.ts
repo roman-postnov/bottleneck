@@ -17,12 +17,15 @@ export const BASEMAP = {
   light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
 } as const;
 
+/** Which layer a click landed on, and the index within it. */
+export type PickHit = { layerId: string; index: number };
+
 export type MapHandle = {
   map: MapLibreMap;
   deck: Deck;
   setLayers(layers: Layer[]): void;
   flyTo(center: [number, number], zoom: number): void;
-  onPick(cb: (index: number | null) => void): void;
+  onPick(cb: (hit: PickHit | null) => void): void;
   setBasemap(url: string | null): void;
   destroy(): void;
 };
@@ -95,11 +98,23 @@ export function initMap(
   map.on('move', sync);
   map.on('resize', sync);
 
-  let pickCb: ((index: number | null) => void) | null = null;
+  let pickCb: ((hit: PickHit | null) => void) | null = null;
   map.on('click', (ev) => {
     if (!pickCb) return;
-    const info = deck.pickObject({ x: ev.point.x, y: ev.point.y, radius: 4, layerIds: ['roads'] });
-    pickCb(info ? info.index : null);
+    const x = ev.point.x;
+    const y = ev.point.y;
+    // Cars first and with a fatter halo: a dot is a four-pixel disc at best and unaimable at
+    // z12. Two passes cost nothing -- deck renders the picking buffer on demand, so this runs
+    // on a click and never per frame.
+    for (const id of ['cars', 'stuck', 'parked']) {
+      const hit = deck.pickObject({ x, y, radius: 8, layerIds: [id] });
+      if (hit) {
+        pickCb({ layerId: id, index: hit.index });
+        return;
+      }
+    }
+    const road = deck.pickObject({ x, y, radius: 4, layerIds: ['roads'] });
+    pickCb(road ? { layerId: 'roads', index: road.index } : null);
   });
 
   return {

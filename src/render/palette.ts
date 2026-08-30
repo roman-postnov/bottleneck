@@ -62,6 +62,26 @@ export type Palette = {
   /** The dot needs an outline: a road is pale when empty and near-black when full, and no
    *  single fill reads on both. */
   particleEdge: [number, number, number];
+  /**
+   * A car drawn without an outline, which is what it gets when it is barely a pixel across and
+   * the outline would BE the dot. One fill has to read on the basemap and on a jammed road at
+   * once, which the note above says is impossible -- so this is the one that reads on the
+   * basemap, because an empty road is a hairline and the basemap is what a dot sits on. That
+   * makes it dark on the light theme and light on the dark one: the opposite of `particle`.
+   */
+  carDense: [number, number, number];
+  /**
+   * Cars still standing in a driveway. Quiet, because at t = 0 the whole fleet is parked and a
+   * loud yard would read as a city already in gridlock -- which is the opposite of the truth.
+   */
+  parked: [number, number, number, number];
+  /**
+   * Cars the network has stranded: no route out from where they stand. These are §11's
+   * `stranded`, and this is the first time that number is visible on the map at all.
+   */
+  stuck: [number, number, number];
+  /** The route of the car being followed. */
+  trail: [number, number, number];
 };
 
 export const PALETTE: Record<Theme, Palette> = {
@@ -70,12 +90,20 @@ export const PALETTE: Record<Theme, Palette> = {
     cut: [0xff, 0x3b, 0x30],
     particle: [0xf2, 0xf6, 0xfa],
     particleEdge: [0x0a, 0x12, 0x1a],
+    carDense: [0xf2, 0xf6, 0xfa],
+    parked: [0x93, 0xa6, 0xb8, 0x70],
+    stuck: [0xb0, 0x5c, 0xe8],
+    trail: [0x38, 0xd6, 0xff],
   },
   light: {
     load: ramp(LIGHT),
     cut: [0xe1, 0x1d, 0x48],
     particle: [0xff, 0xff, 0xff],
     particleEdge: [0x16, 0x2a, 0x3d],
+    carDense: [0x16, 0x2a, 0x3d],
+    parked: [0x74, 0x86, 0x99, 0x78],
+    stuck: [0x7c, 0x3a, 0xed],
+    trail: [0x0e, 0x76, 0xd6],
   },
 };
 

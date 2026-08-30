@@ -5,7 +5,7 @@ import { parseCity } from '../core/city.ts';
 import { createSim, tick, applyEdits, metrics, updateFrameStats } from '../core/sim.ts';
 import { maxFlow } from '../core/maxflow.ts';
 import { resolveParams } from '../core/scenario.ts';
-import { buildEdgeGeometry } from './geometry.ts';
+import { buildEdgeGeometry, buildNodeXY } from './geometry.ts';
 import type { City, Metrics, Scenario, SimState } from '../core/types.ts';
 import type { WorkerScope, WorkerToMain } from './protocol.ts';
 
@@ -32,7 +32,16 @@ let playing = false;
 let speedX = 60;
 let stopAt = Infinity;
 
-const pool: Float32Array[] = [];
+/**
+ * One set per in-flight frame. Three arrays travel together now (§8): n, the per-edge outflow
+ * delta and the per-node departure delta, so they are pooled and recycled together -- a pool
+ * per array would let one run dry while another had spares and skip frames for no reason.
+ */
+type FrameSet = { n: Float32Array; outflow: Float32Array; departed: Float32Array };
+const pool: FrameSet[] = [];
+/** Split snapshots, pooled separately: they ride along only when the field is rebuilt. */
+const fieldPool: Float32Array[] = [];
+let sentFieldRev = -1;
 let lastFrameAt = 0;
 let lastStepAt = 0;
 /** Fractional ticks carried between turns; flooring per turn would ignore slow speeds. */
@@ -66,7 +75,16 @@ function configure(next: Scenario): void {
   sim = s;
 
   pool.length = 0;
-  pool.push(new Float32Array(city.E), new Float32Array(city.E));
+  for (let i = 0; i < 2; i++) {
+    pool.push({
+      n: new Float32Array(city.E),
+      outflow: new Float32Array(city.E),
+      departed: new Float32Array(city.V),
+    });
+  }
+  fieldPool.length = 0;
+  fieldPool.push(new Float32Array(city.E), new Float32Array(city.E));
+  sentFieldRev = s.fieldRev;
   curve = [];
   nextCurveAt = 0;
   finishedSent = false;
@@ -75,6 +93,22 @@ function configure(next: Scenario): void {
 
   const geo = buildEdgeGeometry(city);
   const storage = Float32Array.from(s.storage);
+
+  // Copies, not the city's own views, and not s.ttSec either. Every section of city.bin is a
+  // view on one ArrayBuffer (§5) and s.ttSec IS s.ringLen -- transferring any of them would
+  // detach the buffer the simulation is still running on.
+  const csrOff = Uint32Array.from(city.csrOff);
+  const edgeTo = Uint32Array.from(city.edgeTo);
+  const isExit = Uint8Array.from(city.isExit);
+  const ttSec = Uint16Array.from(s.ttSec);
+  const split = Float32Array.from(s.field.split);
+  const demand0 = Float32Array.from(s.demand0);
+  const nodeXY = buildNodeXY(city, (city.meta as ReadyMeta).center);
+
+  const nodes: number[] = [];
+  for (let v = 0; v < city.V; v++) if (demand0[v] > 0) nodes.push(v);
+  const demandNodes = Uint32Array.from(nodes);
+
   post(
     {
       type: 'ready',
@@ -88,23 +122,46 @@ function configure(next: Scenario): void {
       vertexOff: Uint32Array.from(geo.startIndices),
       maxFlowVehH: mf.valueVehH,
       cutEdges: mf.cutEdges,
+      seed: params.seed,
+      csrOff,
+      edgeTo,
+      isExit,
+      ttSec,
+      split,
+      demand0,
+      demandNodes,
+      nodeXY,
+      maxOutDeg: city.maxOutDeg,
     },
-    [storage.buffer, geo.positions.buffer, geo.startIndices.buffer],
+    [
+      storage.buffer,
+      geo.positions.buffer,
+      geo.startIndices.buffer,
+      csrOff.buffer,
+      edgeTo.buffer,
+      isExit.buffer,
+      ttSec.buffer,
+      split.buffer,
+      demand0.buffer,
+      demandNodes.buffer,
+      nodeXY.buffer,
+    ],
   );
   emitFrame(0, 0, true);
 }
 
 type ReadyMeta = Extract<WorkerToMain, { type: 'ready' }>['meta'];
 
-function totals(s: SimState): { enRoute: number; notDeparted: number } {
+function totals(s: SimState): { enRoute: number; notDeparted: number; onNetwork: number } {
   let enRoute = 0;
   let notDeparted = 0;
+  let onNetwork = 0;
   for (let v = 0; v < s.city.V; v++) {
     notDeparted += s.waiting[v];
     enRoute += s.queued[v];
   }
-  for (let e = 0; e < s.city.E; e++) enRoute += s.n[e];
-  return { enRoute, notDeparted };
+  for (let e = 0; e < s.city.E; e++) onNetwork += s.n[e];
+  return { enRoute: enRoute + onNetwork, notDeparted, onNetwork };
 }
 
 function emitFrame(ticksInFrame: number, wallMs: number, force = false): void {
@@ -115,26 +172,71 @@ function emitFrame(ticksInFrame: number, wallMs: number, force = false): void {
 
   // No free buffer means the main thread has not returned one yet -- skip the frame and
   // keep simulating. Waiting here would make the simulator look hung (§8).
-  const buf = pool.pop();
-  if (!buf) return;
+  const set = pool.pop();
+  if (!set) return;
 
   lastFrameAt = now;
   updateFrameStats(s);
-  buf.set(s.n);
-  const { enRoute, notDeparted } = totals(s);
+  set.n.set(s.n);
+  // Drained, not read: the accumulators are cleared only here, on a post that is definitely
+  // going out, so a frame skipped for want of a buffer folds into the next one instead of
+  // losing its flows. The renderer places one dot per vehicle and a lost departure is a
+  // car that never appears.
+  set.outflow.set(s.outAccum);
+  s.outAccum.fill(0);
+  set.departed.set(s.depAccum);
+  s.depAccum.fill(0);
+
+  const transfer: Transferable[] = [set.n.buffer, set.outflow.buffer, set.departed.buffer];
+  let split: Float32Array | undefined;
+  if (s.fieldRev !== sentFieldRev) {
+    const buf = fieldPool.pop();
+    // Nothing free: leave sentFieldRev alone so the next frame tries again. The tracers keep
+    // routing on the previous field for a few frames, which is what they already do between
+    // reoptimisations anyway.
+    if (buf) {
+      buf.set(s.field.split);
+      split = buf;
+      transfer.push(buf.buffer);
+      sentFieldRev = s.fieldRev;
+    }
+  }
+
+  const { enRoute, notDeparted, onNetwork } = totals(s);
   post(
     {
       type: 'frame',
       t: s.t,
-      n: buf,
+      n: set.n,
       evacuated: s.evacuated,
       enRoute,
       notDeparted,
       ticksInFrame,
       wallMs,
+      outflow: set.outflow,
+      departed: set.departed,
+      onNetwork,
+      fieldRev: s.fieldRev,
+      split,
     },
-    [buf.buffer],
+    transfer,
   );
+}
+
+/**
+ * §9.3 changes storage, blocked and cap under a running network. The renderer used to keep the
+ * `storage` it got at configure time forever, so every load, colour and queue length went stale
+ * after a lanes or contraflow edit. Rare and user-driven, so fresh arrays rather than a pool.
+ */
+function postNetwork(s: SimState): void {
+  const storage = Float32Array.from(s.storage);
+  const blocked = Uint8Array.from(s.blocked);
+  const ttSec = Uint16Array.from(s.ttSec);
+  post({ type: 'network', storage, blocked, ttSec }, [
+    storage.buffer,
+    blocked.buffer,
+    ttSec.buffer,
+  ]);
 }
 
 function emitCurve(): void {
@@ -198,6 +300,7 @@ function step(): void {
   // would otherwise keep quoting the max-flow of a road that is no longer there.
   if (s.scheduleCursor !== cursorBefore && city) {
     s.maxFlowVehH = maxFlow(city, s.params, s.blocked, s.lanes).valueVehH;
+    postNetwork(s);
   }
   // Whatever did not fit in the slice is dropped, not carried: the hardware is the limit
   // and the UI shows the acceleration actually achieved (§1.1).
@@ -284,12 +387,19 @@ ctx.addEventListener('message', (ev) => {
         if (sim) {
           applyEdits(sim, msg.edits);
           if (city) sim.maxFlowVehH = maxFlow(city, sim.params, sim.blocked, sim.lanes).valueVehH;
+          postNetwork(sim);
           emitFrame(0, 0, true);
         }
         break;
 
       case 'recycle':
-        if (city && msg.n.length === city.E) pool.push(msg.n);
+        if (city && msg.n.length === city.E && msg.departed.length === city.V) {
+          pool.push({ n: msg.n, outflow: msg.outflow, departed: msg.departed });
+        }
+        break;
+
+      case 'recycleField':
+        if (city && msg.split.length === city.E) fieldPool.push(msg.split);
         break;
 
       case 'names': {

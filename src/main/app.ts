@@ -6,15 +6,19 @@ import { SimClient } from './simClient.ts';
 import { getState, setState, type PresetInfo } from './state.ts';
 import { decodeScenario, defaultScenario, encodeScenario, normalizeScenario } from '../core/scenario.ts';
 import type { CityMeta, Edit, Scenario } from '../core/types.ts';
-import type { FrameMessage, ReadyMessage } from '../worker/protocol.ts';
+import type { FrameMessage, ReadyMessage, WorkerToMain } from '../worker/protocol.ts';
 
 const CLOCK_INTERVAL_MS = 200;
 /** Acceleration is averaged over a second: at x1 a 200 ms window reads 0 or 5, never 1. */
 const SPEED_WINDOW_MS = 1000;
 
+export type NetworkMessage = Extract<WorkerToMain, { type: 'network' }>;
+
 export type FrameSink = {
   onReady(msg: ReadyMessage): void;
   onFrame(msg: FrameMessage): void;
+  /** An edit changed storage, blocked or ttSec under the running network (§9.3). */
+  onNetwork(msg: NetworkMessage): void;
 };
 
 let sink: FrameSink | null = null;
@@ -81,6 +85,10 @@ client.on('frame', (msg) => {
       actualX: Math.max(0, actualX),
     },
   });
+});
+
+client.on('network', (msg) => {
+  sink?.onNetwork(msg);
 });
 
 client.on('curve', (msg) => {

@@ -10,6 +10,24 @@ export type EdgeGeometry = {
   startIndices: Uint32Array;
 };
 
+/**
+ * Node coordinates as metre offsets from `center`, for the tracer layer's METER_OFFSETS
+ * coordinate system (§13.2). Float32 metres, not Float64 degrees: deck.gl splits a Float64
+ * getPosition into hi/lo Float32 attributes on the CPU every frame under LNGLAT, and a
+ * quarter-million dots make that a cost nobody can see in a profiler.
+ */
+export function buildNodeXY(city: City, center: [lat: number, lon: number]): Float32Array {
+  const out = new Float32Array(city.V * 2);
+  const lat0 = center[0];
+  const lon0 = center[1];
+  const mPerLon = 111320 * Math.cos(lat0 * (Math.PI / 180));
+  for (let v = 0; v < city.V; v++) {
+    out[v * 2] = (city.lon[v] / 1e7 - lon0) * mPerLon;
+    out[v * 2 + 1] = (city.lat[v] / 1e7 - lat0) * 110540;
+  }
+  return out;
+}
+
 export function buildEdgeGeometry(city: City): EdgeGeometry {
   const { E, geomOff } = city;
   const vertices = 2 * E + geomOff[E];

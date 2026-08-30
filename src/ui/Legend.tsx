@@ -17,11 +17,15 @@ export function Legend(): React.ReactElement | null {
   const theme = useStore((s) => s.theme);
   const showCut = useStore((s) => s.showCut);
   const particles = useStore((s) => s.particles);
+  const showParked = useStore((s) => s.showParked);
+  const stranded = useStore((s) => s.perf?.stuck ?? 0);
   const ready = useStore((s) => s.ready);
   if (!ready) return null;
 
   const cut = PALETTE[theme].cut;
   const dot = PALETTE[theme].particle;
+  const parked = PALETTE[theme].parked;
+  const stuck = PALETTE[theme].stuck;
 
   return (
     <div className="legend">
@@ -32,10 +36,27 @@ export function Legend(): React.ReactElement | null {
         <span>stopped</span>
       </div>
       {particles && (
-        <div className="key">
-          <i className="dot" style={{ background: `rgb(${dot[0]},${dot[1]},${dot[2]})` }} />
-          cars — they crawl where it is jammed
-        </div>
+        <>
+          <div className="key">
+            <i className="dot" style={{ background: `rgb(${dot[0]},${dot[1]},${dot[2]})` }} />
+            one dot is one car — click it to follow its route
+          </div>
+          {showParked && (
+            <div className="key">
+              <i
+                className="dot"
+                style={{ background: `rgba(${parked[0]},${parked[1]},${parked[2]},0.7)` }}
+              />
+              still in the driveway
+            </div>
+          )}
+          {stranded > 0 && (
+            <div className="key">
+              <i className="dot" style={{ background: `rgb(${stuck[0]},${stuck[1]},${stuck[2]})` }} />
+              no way out from where they stand — {stranded.toLocaleString()}
+            </div>
+          )}
+        </>
       )}
       {showCut && (
         <div className="key">

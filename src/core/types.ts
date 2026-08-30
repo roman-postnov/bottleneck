@@ -172,6 +172,17 @@ export type SimState = {
   ndActive: Uint8Array;
   ndSat: Uint8Array;
 
+  /**
+   * Cumulative moveOut per edge since the worker last shipped a frame, and cumulative moveSrc
+   * per node likewise. The renderer needs both as flows, not levels: it places one dot per
+   * vehicle, so it has to know how many left each edge and each driveway, not how many stand
+   * there now. Whoever reads them zeroes them; the core only ever adds.
+   */
+  outAccum: Float32Array;
+  depAccum: Float32Array;
+  /** Bumped by every rebuildField, so a reader can tell whether `field.split` moved. */
+  fieldRev: number;
+
   field: Field;
   evacuated: number;
   totalVeh: number;

@@ -13,7 +13,8 @@ export type MainToWorker =
   | { type: 'stepTo'; tSec: number }
   | { type: 'reset' }
   | { type: 'edit'; edits: Edit[] }
-  | { type: 'recycle'; n: Float32Array }
+  | { type: 'recycle'; n: Float32Array; outflow: Float32Array; departed: Float32Array }
+  | { type: 'recycleField'; split: Float32Array }
   | { type: 'probe'; edgeId: number }
   | { type: 'names'; edgeIds: number[] };
 
@@ -32,6 +33,29 @@ export type ReadyMessage = {
   vertexOff: Uint32Array;
   maxFlowVehH: number;
   cutEdges: Uint32Array;
+
+  // Everything below exists for the tracers of §13.2: one dot per vehicle, walking the graph.
+  // The renderer still imports nothing from src/core (§15) -- the graph arrives as data.
+  /** scenario.seed, so a dot's route is reproducible without src/render reaching into src/main. */
+  seed: number;
+  /** [V+1] the out-edges of node v are exactly the range [csrOff[v], csrOff[v+1]). */
+  csrOff: Uint32Array;
+  /** [E] head node of each edge. */
+  edgeTo: Uint32Array;
+  /** [V] 1 where a dot has left the city. */
+  isExit: Uint8Array;
+  /** [E] free-flow seconds, the model's own traversal time. */
+  ttSec: Uint16Array;
+  /** [E] split shares at t=0; later versions arrive on the frame. */
+  split: Float32Array;
+  /** [V] vehicles that start in each node's driveway. */
+  demand0: Float32Array;
+  /** Nodes with demand0 > 0. Two thirds of V on San Francisco, so worth the 37 KB. */
+  demandNodes: Uint32Array;
+  /** [V*2] node coordinates as metre offsets from meta.center -- see METER_OFFSETS in §13.2. */
+  nodeXY: Float32Array;
+  /** Gates the 4-bit route encoding of the trail: it needs maxOutDeg <= 16. */
+  maxOutDeg: number;
 };
 
 export type FrameMessage = {
@@ -43,6 +67,26 @@ export type FrameMessage = {
   notDeparted: number;
   ticksInFrame: number;
   wallMs: number;
+
+  /**
+   * [E] moveOut summed over the ticks this frame covers -- a DELTA, not a level. The tracers
+   * need the FIFO discharge of each edge, and it has to be moveOut rather than cap: under
+   * spillback the node model drops moveOut to zero while cap is unchanged.
+   *
+   * A delta rather than a cumulative array because cumulative moveOut on an exit edge reaches
+   * ~1e5, where a Float32 step is 0.008; the renderer accumulates into Float64 instead.
+   */
+  outflow: Float32Array;
+  /** [V] moveSrc summed likewise: how many cars left each driveway. Drives dot departures. */
+  departed: Float32Array;
+  /**
+   * Sum of n[e]. NOT enRoute, which also counts cars still queued in driveways and would
+   * therefore overstate how many dots should be on a road.
+   */
+  onNetwork: number;
+  /** SimState.fieldRev. `split` is attached only on the frame where this changes. */
+  fieldRev: number;
+  split?: Float32Array;
 };
 
 export type WorkerToMain =
@@ -65,6 +109,12 @@ export type WorkerToMain =
       blocked: boolean;
     }
   | { type: 'names'; names: Record<number, string> }
+  /**
+   * Sent only when an edit changes the network (§9.3). `storage` is here because the renderer
+   * was reading the one from `ready` forever, and setLanes rewrites it -- so load, colour and
+   * the queue length of a dot were all computed against a stale array after any lanes edit.
+   */
+  | { type: 'network'; storage: Float32Array; blocked: Uint8Array; ttSec: Uint16Array }
   | { type: 'error'; where: string; message: string };
 
 /**

@@ -103,6 +103,10 @@ export function createSim(city: City, params: Params, edits: Edit[] = []): SimSt
     ndActive: new Uint8Array(nd),
     ndSat: new Uint8Array(nd),
 
+    outAccum: new Float32Array(E),
+    depAccum: new Float32Array(V),
+    fieldRev: 0,
+
     field: buildField(city, exits, edgeCostFree, blocked, params.logitTheta, {
       splitEpsilon: params.splitEpsilon,
       informed: params.informed,
@@ -180,6 +184,7 @@ function rebuildField(s: SimState): void {
     informed: s.params.informed,
     edgeCostObs: s.edgeCostObs,
   });
+  s.fieldRev += 1;
 }
 
 function reoptimize(s: SimState): void {
@@ -237,10 +242,16 @@ export function tick(s: SimState): void {
     if (f === 0) continue;
     s.n[e] -= f;
     s.ready[e] -= f;
+    s.outAccum[e] += f;
   }
   for (let v = 0; v < V; v++) {
     const f = s.moveSrc[v];
-    if (f !== 0) s.queued[v] -= f;
+    if (f !== 0) {
+      s.queued[v] -= f;
+      // At an exit node moveSrc is not a departure from a driveway but the evacuated flow
+      // (nodeModel phase 5), and counting it here would spawn dots at the city limit.
+      if (!city.isExit[v]) s.depAccum[v] += f;
+    }
   }
 
   // 6 (arrival) and 8 ACCOUNT

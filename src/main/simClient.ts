@@ -17,6 +17,7 @@ export class SimClient {
     done: [],
     probeResult: [],
     names: [],
+    network: [],
     error: [],
   };
 
@@ -80,7 +81,13 @@ export class SimClient {
     this.send({ type: 'names', edgeIds });
   }
   private recycle(frame: FrameMessage): void {
-    this.send({ type: 'recycle', n: frame.n }, [frame.n.buffer]);
+    this.send(
+      { type: 'recycle', n: frame.n, outflow: frame.outflow, departed: frame.departed },
+      [frame.n.buffer, frame.outflow.buffer, frame.departed.buffer],
+    );
+    // The split snapshot rides along only on the frames where the field was rebuilt, and it
+    // has its own pool in the worker, so it goes back on its own message.
+    if (frame.split) this.send({ type: 'recycleField', split: frame.split }, [frame.split.buffer]);
   }
 
   dispose(): void {

@@ -1,8 +1,12 @@
 // Frame cost split the way the frame loop is split, behind ?perf=1.
 //
-// §13.2 says to cut particles when 16 ms is blown. On a city the size of San Francisco a
-// dropped framerate is acceptable and cutting the main visual silently is not, so this says
-// which of the four phases spent the time instead of deciding anything.
+// §13.2 says a dropped framerate on a big city is acceptable and cutting the main visual
+// silently is not, so this says which phase spent the time instead of deciding anything.
+// Cutting is no longer even available: the dots ARE the count now, so drawing fewer would be
+// a lie rather than a saving.
+//
+// `err` is the one number worth watching: max |dots on an edge - n[e]|. It should stay around
+// a car. If it drifts, the Newell placement is wired wrong and the map is lying about density.
 
 import { useStore } from '../main/state.ts';
 
@@ -19,7 +23,11 @@ export function Perf(): React.ReactElement | null {
       <span>place {ms(perf.place)}</span>
       <span>upload {ms(perf.upload)}</span>
       <span>
-        {perf.dots.toLocaleString()} dots · z{perf.zoom.toFixed(1)}
+        {perf.dots.toLocaleString()} moving · {perf.parked.toLocaleString()} parked
+        {perf.stuck > 0 && ` · ${perf.stuck.toLocaleString()} stranded`}
+      </span>
+      <span>
+        err {perf.dotErr.toFixed(1)} · z{perf.zoom.toFixed(1)}
       </span>
     </div>
   );

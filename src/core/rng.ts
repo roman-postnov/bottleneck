@@ -13,8 +13,15 @@ export type Rng = {
   next(): number;
 };
 
-/** splitmix32: expands a small seed into well-mixed state words. */
-function splitmix32(a: number): () => number {
+/**
+ * splitmix32: expands a small seed into well-mixed state words.
+ *
+ * Exported so test/tracers.test.ts can pin the copy in src/render/tracers.ts against it. §15
+ * forbids src/render from importing src/core, so the mixer had to be duplicated there, and an
+ * undetected drift between the two would make a dot's route irreproducible in a way nothing
+ * else would catch.
+ */
+export function splitmix32(a: number): () => number {
   let x = a | 0;
   return () => {
     x = (x + 0x9e3779b9) | 0;

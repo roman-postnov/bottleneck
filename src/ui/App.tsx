@@ -5,6 +5,7 @@ import { EvacCurve } from './EvacCurve.tsx';
 import { MetricsPanel } from './MetricsPanel.tsx';
 import { Interventions } from './Interventions.tsx';
 import { Legend } from './Legend.tsx';
+import { CarPanel } from './CarPanel.tsx';
 import { Perf } from './Perf.tsx';
 import { setState, useStore } from '../main/state.ts';
 
@@ -43,6 +44,7 @@ export function App(): React.ReactElement {
         </header>
         {error && <div className="error">{error}</div>}
         <Controls />
+        <CarPanel />
         <EvacCurve />
         <MetricsPanel />
         <Interventions />
