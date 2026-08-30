@@ -55,7 +55,11 @@ export function createGraphView(
 ): GraphView {
   const vertexCount = startIndices[E];
   const colors = new Uint8Array(vertexCount * 3);
-  const widths = new Float32Array(E).fill(WIDTH_EMPTY);
+  // Per VERTEX, not per path -- same rule as the colours (§13.1). Sized [E] this silently
+  // under-supplies the instanced draw: Chromium reads past the buffer and draws garbage
+  // widths, Firefox refuses the draw call outright and the entire road layer disappears
+  // ("Instance fetch requires 15790, but attribs only supply 2703").
+  const widths = new Float32Array(vertexCount).fill(WIDTH_EMPTY);
   return {
     E,
     positions,
@@ -89,7 +93,7 @@ export function paint(
     let load = n[e] / storage[e];
     if (!(load > 0)) load = 0;
     else if (load > 1) load = 1;
-    widths[e] = WIDTH_EMPTY + (WIDTH_JAMMED - WIDTH_EMPTY) * load;
+    const w = WIDTH_EMPTY + (WIDTH_JAMMED - WIDTH_EMPTY) * load;
     const c = (((load * (LUT_SIZE - 1)) | 0) * 3) | 0;
     const r = lut[c];
     const g = lut[c + 1];
@@ -99,6 +103,7 @@ export function paint(
       colors[o] = r;
       colors[o + 1] = g;
       colors[o + 2] = b;
+      widths[k] = w;
     }
   }
   view.revision++;

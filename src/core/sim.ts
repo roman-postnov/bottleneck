@@ -52,8 +52,12 @@ export function createSim(city: City, params: Params, edits: Edit[] = []): SimSt
   const exits =
     params.exits && params.exits.length > 0 ? Uint32Array.from(params.exits) : city.exitNode;
 
-  const edgeCostSec = new Float32Array(E);
-  for (let e = 0; e < E; e++) edgeCostSec[e] = ttSec[e];
+  // Two arrays, not one. The free-flow price is the potential the routing field descends and
+  // it must survive the whole run: reactive reoptimisation smooths its own array towards the
+  // observed cost, and a single array would leave nothing to route the uninformed share by.
+  const edgeCostFree = new Float32Array(E);
+  for (let e = 0; e < E; e++) edgeCostFree[e] = ttSec[e];
+  const edgeCostObs = Float32Array.from(edgeCostFree);
 
   const blocked = new Uint8Array(E);
   const nd = city.maxInDeg + 1;
@@ -99,15 +103,11 @@ export function createSim(city: City, params: Params, edits: Edit[] = []): SimSt
     ndActive: new Uint8Array(nd),
     ndSat: new Uint8Array(nd),
 
-    field: buildField(
-      city,
-      exits,
-      edgeCostSec,
-      blocked,
-      params.logitTheta,
-      undefined,
-      params.splitEpsilon,
-    ),
+    field: buildField(city, exits, edgeCostFree, blocked, params.logitTheta, {
+      splitEpsilon: params.splitEpsilon,
+      informed: params.informed,
+      edgeCostObs,
+    }),
     evacuated: 0,
     totalVeh,
     vehSecInNetwork: 0,
@@ -118,7 +118,8 @@ export function createSim(city: City, params: Params, edits: Edit[] = []): SimSt
     edgeIdOf,
 
     exits,
-    edgeCostSec,
+    edgeCostFree,
+    edgeCostObs,
     maxFlowVehH: 0,
 
     t50Sec: -1,
@@ -173,19 +174,16 @@ export function applyDueEdits(s: SimState): boolean {
 }
 
 function rebuildField(s: SimState): void {
-  buildField(
-    s.city,
-    s.exits,
-    s.edgeCostSec,
-    s.blocked,
-    s.params.logitTheta,
-    s.field,
-    s.params.splitEpsilon,
-  );
+  buildField(s.city, s.exits, s.edgeCostFree, s.blocked, s.params.logitTheta, {
+    out: s.field,
+    splitEpsilon: s.params.splitEpsilon,
+    informed: s.params.informed,
+    edgeCostObs: s.edgeCostObs,
+  });
 }
 
 function reoptimize(s: SimState): void {
-  observedCost(s, s.edgeCostSec, s.params.ttSmoothing, s.edgeCostSec);
+  observedCost(s, s.edgeCostObs, s.params.ttSmoothing, s.edgeCostObs);
   rebuildField(s);
 }
 
@@ -198,7 +196,7 @@ export function tick(s: SimState): void {
   // Before phase 1, so the whole tick is computed on the network the edit leaves behind.
   applyDueEdits(s);
 
-  if (params.routingMode === 'reactive' && s.t > 0 && s.t % params.reoptSec === 0) {
+  if (params.informed > 0 && s.t > 0 && s.t % params.reoptSec === 0) {
     reoptimize(s);
   }
 

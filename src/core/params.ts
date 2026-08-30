@@ -7,6 +7,7 @@ export const DEFAULTS = {
   occupancy: 2.2,
   participation: 1.0,
   mobilizationHalfMin: 90,
+  informed: 0.33,
   reoptSec: 300,
   logitTheta: 0.15,
   splitEpsilon: 0.01,

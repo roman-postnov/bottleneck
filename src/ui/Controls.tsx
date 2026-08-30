@@ -119,21 +119,21 @@ export function Controls(): React.ReactElement {
 
       {scenario && (
         <>
-          <div className="row">
-            <label>Routing</label>
-            <select
-              value={scenario.routing.mode}
-              onChange={(e) =>
-                updateScenario((s) => ({
-                  ...s,
-                  routing: { ...s.routing, mode: e.target.value as 'static' | 'reactive' },
-                }))
-              }
-            >
-              <option value="static">drivers blind to jams</option>
-              <option value="reactive">drivers see traffic</option>
-            </select>
-          </div>
+          <Slider
+            label="See traffic"
+            value={Math.round(scenario.routing.informed * 100)}
+            min={0}
+            max={100}
+            step={1}
+            suffix="% of drivers"
+            onChange={(v) =>
+              updateScenario((s) => ({ ...s, routing: { ...s.routing, informed: v / 100 } }))
+            }
+          />
+          <p className="note muted">
+            At 0% everyone drives the map and nobody knows where the jams are; at 100% everyone
+            reroutes around them. Both ends are wrong for a real town.
+          </p>
 
           <Slider
             label="Occupancy"

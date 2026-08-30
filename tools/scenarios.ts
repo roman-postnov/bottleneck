@@ -113,16 +113,27 @@ function write(name: string, label: string, s: Scenario): void {
 const paradise = city('paradise');
 const contraflow = skywayContraflow(paradise);
 
+/**
+ * Nobody in Paradise could see the traffic. The fire took 17 cell towers on the first day and
+ * burned the poles carrying the fiber; CodeRED reached 17% of the combined population of
+ * Paradise and Magalia between 07:57 and 09:30 (NIST TN 2252). The default share of drivers
+ * routing on live conditions does not apply to this town on this morning.
+ */
+const noSignal = (cityId: string): Scenario => {
+  const s = defaultScenario(cityId);
+  return { ...s, routing: { ...s.routing, informed: 0 } };
+};
+
 write('paradise-2018', 'Paradise, 8 Nov 2018 — as it happened', {
-  ...defaultScenario('paradise'),
+  ...noSignal('paradise'),
   edits: [...contraflow, ...campFireClosures(paradise)],
 });
 write('paradise-no-contraflow', 'Paradise — without the contraflow', {
-  ...defaultScenario('paradise'),
+  ...noSignal('paradise'),
   edits: campFireClosures(paradise),
 });
 write('paradise-open-network', 'Paradise — if the fire had closed nothing', {
-  ...defaultScenario('paradise'),
+  ...noSignal('paradise'),
   edits: contraflow,
 });
 write('mercer-baseline', 'Mercer Island — the small case', defaultScenario('mercer'));

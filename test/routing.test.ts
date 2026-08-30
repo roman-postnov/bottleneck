@@ -126,7 +126,7 @@ describe('buildField: split', () => {
       sources: [{ node: 0, pop: 100 }],
       exits: [3],
     });
-    const f = buildField(c, c.exitNode, freeFlowCost(c), new Uint8Array(c.E), 0.15, undefined, 0.01);
+    const f = buildField(c, c.exitNode, freeFlowCost(c), new Uint8Array(c.E), 0.15, { splitEpsilon: 0.01 });
     expect(f.split[c.csrOff[0]]).toBe(1);
     expect(f.split[c.csrOff[0] + 1]).toBe(0);
   });
@@ -160,8 +160,147 @@ describe('buildField: split', () => {
   it('reuses the buffer it is handed', () => {
     const c = loadFixture('line10');
     const first = buildField(c, c.exitNode, freeFlowCost(c), new Uint8Array(c.E), 0);
-    const again = buildField(c, c.exitNode, freeFlowCost(c), new Uint8Array(c.E), 0, first);
+    const again = buildField(c, c.exitNode, freeFlowCost(c), new Uint8Array(c.E), 0, { out: first });
     expect(again).toBe(first);
     expect(again.split).toBe(first.split);
+  });
+});
+
+// -------------------------------------------------------------- §6.2 the informed share
+
+/** True if the arcs carrying flow contain a directed cycle. */
+function hasCycle(c: ReturnType<typeof loadFixture>, split: Float32Array): boolean {
+  const WHITE = 0;
+  const GREY = 1;
+  const BLACK = 2;
+  const colour = new Uint8Array(c.V);
+  const stack: number[] = [];
+
+  for (let root = 0; root < c.V; root++) {
+    if (colour[root] !== WHITE) continue;
+    stack.push(root);
+    while (stack.length > 0) {
+      const v = stack[stack.length - 1];
+      if (colour[v] === WHITE) colour[v] = GREY;
+      let descended = false;
+      for (let e = c.csrOff[v]; e < c.csrOff[v + 1]; e++) {
+        if (split[e] <= 0) continue;
+        const to = c.edgeTo[e];
+        if (colour[to] === GREY) return true;
+        if (colour[to] === WHITE) {
+          stack.push(to);
+          descended = true;
+          break;
+        }
+      }
+      if (!descended) {
+        colour[v] = BLACK;
+        stack.pop();
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Observed prices that disagree with free-flow ones about direction. Multiplying every other
+ * edge is enough: on a grid it reverses the preference at most nodes, which is exactly the
+ * input on which mixing the shares of two fields would put flow on both sides of a street.
+ */
+function contraryObserved(free: Float32Array): Float32Array {
+  const obs = Float32Array.from(free);
+  for (let e = 0; e < obs.length; e += 2) obs[e] *= 20;
+  return obs;
+}
+
+const MIXES = [0, 0.1, 0.33, 0.5, 0.9, 1];
+
+describe('buildField: the informed share', () => {
+  it('never builds a cycle, however the two costs disagree', () => {
+    for (const id of ['grid20', 'island8', 'line10']) {
+      const c = loadFixture(id);
+      const free = freeFlowCost(c);
+      const obs = contraryObserved(free);
+      for (const informed of MIXES) {
+        const f = buildField(c, c.exitNode, free, new Uint8Array(c.E), DEFAULTS.logitTheta, {
+          informed,
+          edgeCostObs: obs,
+        });
+        expect(hasCycle(c, f.split), `${id} at informed=${informed}`).toBe(false);
+      }
+    }
+  });
+
+  // Sanity check 16, restated: the blend of two distributions is a distribution.
+  it('keeps every node summing to 1 or 0', () => {
+    const c = loadFixture('grid20');
+    const free = freeFlowCost(c);
+    const obs = contraryObserved(free);
+    for (const informed of MIXES) {
+      const f = buildField(c, c.exitNode, free, new Uint8Array(c.E), DEFAULTS.logitTheta, {
+        informed,
+        edgeCostObs: obs,
+      });
+      for (let v = 0; v < c.V; v++) {
+        let sum = 0;
+        for (let e = c.csrOff[v]; e < c.csrOff[v + 1]; e++) sum += f.split[e];
+        if (c.csrOff[v + 1] === c.csrOff[v]) continue;
+        expect(Math.min(Math.abs(sum - 1), Math.abs(sum))).toBeLessThan(1e-6);
+      }
+    }
+  });
+
+  // §6.2 step 1 again: the blend can land a share below the cutoff even when neither field did,
+  // and under FIFO any non-zero share pointed at a jammed edge stalls the whole node.
+  it('leaves no share between zero and splitEpsilon', () => {
+    const c = loadFixture('grid20');
+    const free = freeFlowCost(c);
+    const obs = contraryObserved(free);
+    for (const informed of [0.005, 0.1, 0.5, 0.995]) {
+      const f = buildField(c, c.exitNode, free, new Uint8Array(c.E), DEFAULTS.logitTheta, {
+        informed,
+        edgeCostObs: obs,
+        splitEpsilon: DEFAULTS.splitEpsilon,
+      });
+      for (let e = 0; e < c.E; e++) {
+        expect(f.split[e] === 0 || f.split[e] >= DEFAULTS.splitEpsilon).toBe(true);
+      }
+    }
+  });
+
+  it('prices the uninformed share by the map even where the traffic says turn back', () => {
+    const c = tinyCity({
+      V: 4,
+      edges: [
+        { from: 0, to: 1, lanes: 1, cls: 5, lenM: 300, speedKmh: 30 },
+        { from: 1, to: 0, lanes: 1, cls: 5, lenM: 300, speedKmh: 30 },
+        { from: 1, to: 3, lanes: 1, cls: 5, lenM: 300, speedKmh: 30 },
+        { from: 0, to: 3, lanes: 1, cls: 5, lenM: 6000, speedKmh: 30 },
+      ],
+      sources: [{ node: 0, pop: 100 }],
+      exits: [3],
+    });
+    const free = freeFlowCost(c);
+    // The short way out is jammed solid, so the observed field wants everyone at node 1 to
+    // drive back to node 0 and take the long way. That is the arc that would close the loop.
+    const obs = Float32Array.from(free);
+    obs[2] *= 400;
+
+    const f = buildField(c, c.exitNode, free, new Uint8Array(c.E), DEFAULTS.logitTheta, {
+      informed: 0.5,
+      edgeCostObs: obs,
+    });
+    expect(f.split[1]).toBe(0);
+    expect(hasCycle(c, f.split)).toBe(false);
+  });
+
+  it('does not price the observed field at all when nobody can see it', () => {
+    const c = loadFixture('grid20');
+    const free = freeFlowCost(c);
+    const f = buildField(c, c.exitNode, free, new Uint8Array(c.E), DEFAULTS.logitTheta, {
+      informed: 0,
+      edgeCostObs: contraryObserved(free),
+    });
+    for (let v = 0; v < c.V; v++) expect(f.costObs[v]).toBe(0);
   });
 });

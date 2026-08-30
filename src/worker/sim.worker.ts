@@ -162,7 +162,7 @@ function finished(s: SimState): boolean {
   return (
     s.t >= stopAt ||
     s.t >= s.params.horizonSec ||
-    (s.totalVeh > 0 && s.evacuated >= s.totalVeh - 1e-6)
+    (s.totalVeh > 0 && s.evacuated >= s.totalVeh * (1 - 1e-6))
   );
 }
 

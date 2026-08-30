@@ -1,8 +1,9 @@
 // Owns the map and the deck.gl overlay. Frames are written straight into the colour buffer
 // here; nothing about a frame goes through React state.
 //
-// Drawing is driven by requestAnimationFrame, not by the arrival of a frame: the cut pulses
-// and the traffic crawls while the run is paused, and at ×1 a frame is a whole second away.
+// Drawing is driven by requestAnimationFrame, not by the arrival of a frame: at ×1 a frame is
+// a whole second away, and the cut has to keep pulsing between frames. The dots advance only
+// while the run does -- see the dtSec below.
 
 import { useEffect, useRef } from 'react';
 import { initMap, BASEMAP, type MapHandle } from '../render/map.ts';
@@ -45,13 +46,14 @@ export function MapView(): React.ReactElement {
   const sceneRef = useRef<Scene | null>(null);
 
   const showCut = useStore((s) => s.showCut);
+  const running = useStore((s) => s.status === 'running');
   const theme = useStore((s) => s.theme);
   const particles = useStore((s) => s.particles);
   const particleCap = useStore((s) => s.particleCap);
 
   // Read inside the animation loop without restarting it on every toggle.
-  const opts = useRef({ showCut, theme, particles });
-  opts.current = { showCut, theme, particles };
+  const opts = useRef({ showCut, theme, particles, running });
+  opts.current = { showCut, theme, particles, running };
   const repaint = useRef(true);
 
   useEffect(() => {
@@ -72,7 +74,10 @@ export function MapView(): React.ReactElement {
       raf = requestAnimationFrame(loop);
       const s = sceneRef.current;
       if (!s) return;
-      const dtSec = lastAt === 0 ? 0.016 : Math.min(0.1, (now - lastAt) / 1000);
+      // Paused means paused: the dots stand still. They are the only thing on screen that
+      // claims to be a vehicle, and crawling ones on a stopped clock read as a running model.
+      const elapsed = lastAt === 0 ? 0.016 : Math.min(0.1, (now - lastAt) / 1000);
+      const dtSec = opts.current.running ? elapsed : 0;
       lastAt = now;
       const palette = PALETTE[opts.current.theme];
       const zoom = handle.map.getZoom();

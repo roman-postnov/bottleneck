@@ -25,19 +25,21 @@ function publicCity(id: string): City {
 
 const sf = publicCity('sf');
 
-function go(name: string, mode?: 'static' | 'reactive'): Metrics {
+function go(name: string, informed?: number): Metrics {
   const s0 = normalizeScenario(JSON.parse(readFileSync(`public/scenarios/${name}.json`, 'utf8')) as Scenario);
-  const p = resolveParams(mode ? { ...s0, routing: { ...s0.routing, mode } } : s0);
+  const p = resolveParams(
+    informed === undefined ? s0 : { ...s0, routing: { ...s0.routing, informed } },
+  );
   const s = createSim(sf, p, s0.edits);
   s.maxFlowVehH = maxFlow(sf, p, s.blocked, s.lanes).valueVehH;
   const t0 = Date.now();
-  while (s.t < UNTIL && s.evacuated < s.totalVeh - 1e-6) {
+  while (s.t < UNTIL && s.evacuated < s.totalVeh * (1 - 1e-6)) {
     tick(s);
     if (s.t % 60 === 0) updateFrameStats(s);
   }
   const m = metrics(s);
   console.log(
-    `${name}${mode ? ` (${mode})` : ''}`.padEnd(30),
+    `${name}${informed === undefined ? '' : ` (see traffic ${Math.round(informed * 100)}%)`}`.padEnd(30),
     `t50 ${hours(m.t50Sec)}  t90 ${hours(m.t90Sec)}  peak ${Math.round(m.peakOutflowVehH).toLocaleString('ru')} veh/h` +
       `  ${(m.efficiency * 100).toFixed(0)}% of ceiling  jam ${(m.maxSpillbackM / 1000).toFixed(0)} km` +
       `  [${((Date.now() - t0) / 1000).toFixed(0)} s]`,
@@ -52,7 +54,7 @@ function hours(sec: number | null): string {
 }
 
 const base = go('sf-baseline');
-const informed = go('sf-baseline', 'reactive');
+const seeing = go('sf-baseline', 1);
 const closed = go('sf-bridge-closed');
 
 const fail: string[] = [];
@@ -65,7 +67,7 @@ if (base.t90Sec === null || t90(closed) <= t90(base)) {
 }
 
 console.log(
-  `\nwhat knowing where the jam is buys: ${hours(base.t90Sec)} -> ${hours(informed.t90Sec)}`,
+  `\nwhat knowing where the jam is buys: ${hours(base.t90Sec)} -> ${hours(seeing.t90Sec)}`,
 );
 for (const f of fail) console.error(`MISS  ${f}`);
 process.exit(fail.length === 0 ? 0 : 1);

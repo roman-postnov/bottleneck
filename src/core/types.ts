@@ -95,7 +95,14 @@ export type City = {
 /** The routing field (§6.1): split shares per out-edge, seconds to safety per node. */
 export type Field = {
   split: Float32Array;
+  /**
+   * Free-flow seconds to the nearest exit. This is the potential the used arcs descend, and
+   * it is what makes the blended field of §6.2 acyclic: it changes only when an edit changes
+   * the network, never with congestion.
+   */
   cost: Float32Array;
+  /** The same, priced at observed cost. Untouched while `informed` is 0. */
+  costObs: Float32Array;
   next: Int32Array;
 };
 
@@ -116,7 +123,8 @@ export type Params = {
   /** Exit nodes from the scenario; null means "use the ones in city.bin". */
   exits: number[] | null;
 
-  routingMode: 'static' | 'reactive';
+  /** Share of flow routing on observed travel times rather than free-flow ones, 0..1 (§6.2). */
+  informed: number;
   reoptSec: number;
   logitTheta: number;
   splitEpsilon: number;
@@ -180,8 +188,10 @@ export type SimState = {
 
   /** Exit nodes actually in force: city.exitNode unless the scenario overrides them. */
   exits: Uint32Array;
-  /** What buildField currently prices each edge at, seconds. */
-  edgeCostSec: Float32Array;
+  /** Free-flow seconds per edge. Constant for a run: neither `lanes` nor `contraflow` moves it. */
+  edgeCostFree: Float32Array;
+  /** What the informed share believes each edge costs now, smoothed (§6.1 observedCost). */
+  edgeCostObs: Float32Array;
   /** Filled from maxflow.ts by whoever runs it; 0 means "not computed". */
   maxFlowVehH: number;
 
@@ -243,7 +253,7 @@ export type Scenario = {
   };
 
   routing: {
-    mode: 'static' | 'reactive';
+    informed: number;
     reoptSec: number;
     logitTheta: number;
     splitEpsilon: number;

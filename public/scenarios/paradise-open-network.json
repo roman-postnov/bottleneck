@@ -14,7 +14,7 @@
     "srcInjectLanes": 1
   },
   "routing": {
-    "mode": "static",
+    "informed": 0,
     "reoptSec": 300,
     "logitTheta": 0.15,
     "splitEpsilon": 0.01,

@@ -24,7 +24,7 @@ export function defaultScenario(city: string): Scenario {
       srcInjectLanes: DEFAULTS.srcInjectLanes,
     },
     routing: {
-      mode: 'static',
+      informed: DEFAULTS.informed,
       reoptSec: DEFAULTS.reoptSec,
       logitTheta: DEFAULTS.logitTheta,
       splitEpsilon: DEFAULTS.splitEpsilon,
@@ -36,6 +36,22 @@ export function defaultScenario(city: string): Scenario {
 
 type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 
+/**
+ * `routing.mode: 'static' | 'reactive'` was the two ends of what is now the `informed` dial.
+ * Permalinks carrying it are already out in the world, and a scenario that silently loses its
+ * routing would reproduce a different run under the same link (§10).
+ */
+function legacyRouting(
+  input: DeepPartial<Scenario['routing']> | undefined,
+): DeepPartial<Scenario['routing']> | undefined {
+  if (!input) return input;
+  const mode = (input as { mode?: unknown }).mode;
+  if (mode === undefined || input.informed !== undefined) return input;
+  const { ...rest } = input;
+  delete (rest as { mode?: unknown }).mode;
+  return { ...rest, informed: mode === 'reactive' ? 1 : 0 };
+}
+
 /** Fill in every omitted field from the defaults of §2. A partial scenario is never run. */
 export function normalizeScenario(input: DeepPartial<Scenario> & { city: string }): Scenario {
   const d = defaultScenario(input.city);
@@ -45,7 +61,7 @@ export function normalizeScenario(input: DeepPartial<Scenario> & { city: string 
     seed: input.seed ?? d.seed,
     demand: { ...d.demand, ...input.demand } as Scenario['demand'],
     supply: { ...d.supply, ...input.supply } as Scenario['supply'],
-    routing: { ...d.routing, ...input.routing } as Scenario['routing'],
+    routing: { ...d.routing, ...legacyRouting(input.routing) } as Scenario['routing'],
     edits: (input.edits as Edit[] | undefined) ?? [],
   };
   if (input.exits) s.exits = [...(input.exits as number[])];
@@ -70,7 +86,7 @@ export function resolveParams(s: Scenario): Params {
 
     exits: s.exits ?? null,
 
-    routingMode: s.routing.mode,
+    informed: s.routing.informed,
     reoptSec: s.routing.reoptSec,
     logitTheta: s.routing.logitTheta,
     splitEpsilon: s.routing.splitEpsilon,

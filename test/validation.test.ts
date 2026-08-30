@@ -25,7 +25,7 @@ const ARTERIES = ['Skyway', 'Clark Road', 'Neal Road', 'Pentz Road'];
  *  and V4 are written against. Everything else is a preset the app actually serves. */
 const preset = (name: string): Scenario =>
   name === 'bare'
-    ? normalizeScenario({ city: 'paradise' })
+    ? normalizeScenario({ city: 'paradise', routing: { informed: 0 } })
     : normalizeScenario(JSON.parse(readFileSync(`public/scenarios/${name}.json`, 'utf8')) as Scenario);
 
 const paradise = publicCity('paradise');
@@ -40,7 +40,7 @@ const UNTIL = 12 * HOUR;
 const cache = new Map<string, Metrics>();
 
 function go(name: string, patch: Partial<Scenario['routing']> = {}): Metrics {
-  const key = `${name}|${patch.mode ?? ''}`;
+  const key = `${name}|${patch.informed ?? ''}`;
   const hit = cache.get(key);
   if (hit) return hit;
   const s0 = preset(name);
@@ -59,7 +59,7 @@ beforeAll(() => {
   go('bare');
   go('paradise-open-network');
   go('paradise-2018');
-  go('paradise-2018', { mode: 'reactive' });
+  go('paradise-2018', { informed: 1 });
   go('paradise-no-contraflow');
 }, 120_000);
 
@@ -194,7 +194,7 @@ describe('V8: the Skyway contraflow', () => {
 describe('V12: the information switch', () => {
   it('drivers who see the jams clear the town faster', () => {
     const blind = go('paradise-2018').t90Sec!;
-    const seeing = go('paradise-2018', { mode: 'reactive' }).t90Sec!;
+    const seeing = go('paradise-2018', { informed: 1 }).t90Sec!;
     expect(seeing).toBeLessThan(blind);
   });
 });

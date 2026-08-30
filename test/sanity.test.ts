@@ -230,7 +230,7 @@ describe('check 5: symmetric demand gives a symmetric picture', () => {
     const exits = exitEdgesOf(c);
     expect(exits.length).toBe(2);
     const through = new Float64Array(exits.length);
-    while (s.t < 24 * HOUR && s.evacuated < s.totalVeh - 1e-6) {
+    while (s.t < 24 * HOUR && s.evacuated < s.totalVeh * (1 - 1e-6)) {
       tick(s);
       exits.forEach((e, i) => {
         through[i] += s.moveOut[e];

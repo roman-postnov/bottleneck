@@ -40,10 +40,14 @@ export function params(city: string, patch: ScenarioPatch = {}): Params {
 }
 
 /** Ticks until the clock or the evacuation runs out. Shared so that every check, sanity and
- *  validation alike, drives the core exactly the same way. */
+ *  validation alike, drives the core exactly the same way.
+ *
+ *  The "done" test is relative, matching `metrics.ts`. Absolute 1e-6 is below the Float32
+ *  rounding a run accumulates: Mercer finished 11 691 vehicles at 6 h and then ticked to the
+ *  48 h horizon because the residual sat a hair above the threshold. */
 export function run(s: SimState, untilSec: number, opts: { frameEvery?: number } = {}): SimState {
   const frameEvery = opts.frameEvery ?? 0;
-  while (s.t < untilSec && s.evacuated < s.totalVeh - 1e-6) {
+  while (s.t < untilSec && s.evacuated < s.totalVeh * (1 - 1e-6)) {
     tick(s);
     if (frameEvery && s.t % frameEvery === 0) updateFrameStats(s);
   }
