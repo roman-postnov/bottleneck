@@ -14,7 +14,8 @@
     "preview": "vite preview",
     "extract": "tools/.venv/bin/python tools/osm_extract.py",
     "preprocess": "node tools/preprocess.ts",
-    "scenarios": "node tools/scenarios.ts"
+    "scenarios": "node tools/scenarios.ts",
+    "validate:sf": "node tools/validate-sf.ts"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",

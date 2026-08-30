@@ -9,6 +9,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { FLAG, parseCity } from '../src/core/city.ts';
+import { polylineLengthM } from './preprocess.ts';
 import { defaultScenario } from '../src/core/scenario.ts';
 import { resolveParams } from '../src/core/scenario.ts';
 import { createSim } from '../src/core/sim.ts';
@@ -32,6 +33,33 @@ function exitEdgeOf(c: City, name: string): number {
   const e = edgesNamed(c, name).find((i) => c.flags[i] & FLAG.EXIT_EDGE);
   if (e === undefined) throw new Error(`${name} does not reach an exit`);
   return e;
+}
+
+/**
+ * Every edge that leaves town at the same crossing as the road named `name`.
+ *
+ * A bridge arrives at the city line as more than one OSM way: the Bay Bridge is the five-lane
+ * deck plus a one-lane ramp off Yerba Buena, and they land on two different exit nodes forty
+ * metres apart. Closing only the named one leaves a lane open on a bridge the scenario says
+ * is gone.
+ */
+function crossingEdges(c: City, name: string, radiusM = 400): number[] {
+  const isExitEdge = (e: number): boolean => (c.flags[e] & FLAG.EXIT_EDGE) !== 0;
+  const at = (e: number): [number, number] => {
+    const v = c.edgeTo[e];
+    return [c.lat[v] / 1e7, c.lon[v] / 1e7];
+  };
+  const anchors: [number, number][] = [];
+  for (let e = 0; e < c.E; e++) if (isExitEdge(e) && c.nameOf(e) === name) anchors.push(at(e));
+  if (anchors.length === 0) throw new Error(`${name} does not reach an exit`);
+
+  const out: number[] = [];
+  for (let e = 0; e < c.E; e++) {
+    if (!isExitEdge(e)) continue;
+    const p = at(e);
+    if (anchors.some((a) => polylineLengthM([a, p]) <= radiusM)) out.push(e);
+  }
+  return out;
 }
 
 /**
@@ -84,3 +112,13 @@ write('paradise-2018', { ...defaultScenario('paradise'), edits: [...contraflow, 
 write('paradise-open-network', { ...defaultScenario('paradise'), edits: contraflow });
 write('paradise-no-contraflow', { ...defaultScenario('paradise'), edits: campFireClosures(paradise) });
 write('mercer-baseline', defaultScenario('mercer'));
+
+const sf = city('sf');
+// I-80 carries the ceremonial name of the Interstate system in OSM; the deck of the Bay
+// Bridge is tagged with it and not with the bridge's own name.
+const bayBridge = crossingEdges(sf, 'Dwight D. Eisenhower Highway');
+write('sf-baseline', defaultScenario('sf'));
+write('sf-bridge-closed', {
+  ...defaultScenario('sf'),
+  edits: bayBridge.map((e) => ({ op: 'close' as const, edgeId: e })),
+});
