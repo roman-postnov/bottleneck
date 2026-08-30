@@ -5,6 +5,7 @@ data/raw/*.tif
 data/raw/*.zip
 *.log
 *.md
+!README.md
 !AGENTS.md
 tools/.venv/
 data/extract/
