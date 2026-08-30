@@ -2,7 +2,7 @@
 // split shares over the out-edges of every node.
 
 import { IndexedMinHeap } from './heap.ts';
-import { DEFAULTS } from './params.ts';
+import { DEFAULTS, ttSec } from './params.ts';
 import type { City, Field, SimState } from './types.ts';
 
 const EPS = 1e-9;
@@ -57,7 +57,7 @@ function ensureField(city: City, out: Field | undefined): Field {
 export function freeFlowCost(city: City, out?: Float32Array): Float32Array {
   const cost = out && out.length === city.E ? out : new Float32Array(city.E);
   for (let e = 0; e < city.E; e++) {
-    cost[e] = Math.max(1, Math.round(city.lenM[e] / ((city.speedKmh[e] * 1000) / 3600)));
+    cost[e] = ttSec(city.lenM[e], city.speedKmh[e]);
   }
   return cost;
 }

@@ -137,7 +137,6 @@ export type Params = {
   ttSmoothing: number;
 
   spillbackLoadThreshold: number;
-  hazardCheckSec: number;
   busSeats: number;
   horizonSec: number;
 };
@@ -280,11 +279,6 @@ export type Scenario = {
   exits?: number[];
 
   edits: Edit[];
-
-  hazard?: {
-    checkSec: number;
-    polygons: Array<{ atMin: number; ring: [number, number][] }>;
-  };
 };
 
 /** §11. */

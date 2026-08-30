@@ -1,5 +1,6 @@
 // The numbers §11 says to show, including the ones that are uncomfortable.
 
+import { DEFAULTS } from '../core/params.ts';
 import { useStore } from '../main/state.ts';
 
 /**
@@ -34,7 +35,7 @@ export function MetricsPanel(): React.ReactElement {
 
   const live = metrics === null;
   const carless = metrics ? metrics.carlessPeople : ready ? (ready.meta.carlessPeople ?? 0) : null;
-  const busRuns = metrics ? metrics.busRunsNeeded : Math.ceil((carless ?? 0) / 40);
+  const busRuns = metrics ? metrics.busRunsNeeded : Math.ceil((carless ?? 0) / DEFAULTS.busSeats);
   const t50 = metrics ? metrics.t50Sec : crossing(curve, 0.5);
   const t90 = metrics ? metrics.t90Sec : crossing(curve, 0.9);
   const t100 = metrics ? metrics.t100Sec : crossing(curve, 0.999999);

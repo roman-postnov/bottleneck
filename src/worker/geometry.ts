@@ -5,6 +5,17 @@
 import { GEOM_SCALE } from '../core/city.ts';
 import type { City } from '../core/types.ts';
 
+/**
+ * The equirectangular projection §13.2 works in. Metres per degree of latitude is a constant;
+ * metres per degree of longitude shrinks with the cosine of the latitude.
+ *
+ * src/render/tracers.ts carries the same two, because §15 forbids it to import anything from
+ * here, and test/tracers.test.ts pins the copies together: a drift of one metre per degree
+ * puts every dot beside its road instead of on it.
+ */
+export const M_PER_DEG_LAT = 110540;
+export const mPerDegLon = (latDeg: number): number => 111320 * Math.cos(latDeg * (Math.PI / 180));
+
 export type EdgeGeometry = {
   positions: Float64Array;
   startIndices: Uint32Array;
@@ -20,10 +31,10 @@ export function buildNodeXY(city: City, center: [lat: number, lon: number]): Flo
   const out = new Float32Array(city.V * 2);
   const lat0 = center[0];
   const lon0 = center[1];
-  const mPerLon = 111320 * Math.cos(lat0 * (Math.PI / 180));
+  const mPerLon = mPerDegLon(lat0);
   for (let v = 0; v < city.V; v++) {
     out[v * 2] = (city.lon[v] / 1e7 - lon0) * mPerLon;
-    out[v * 2 + 1] = (city.lat[v] / 1e7 - lat0) * 110540;
+    out[v * 2 + 1] = (city.lat[v] / 1e7 - lat0) * M_PER_DEG_LAT;
   }
   return out;
 }
@@ -34,13 +45,13 @@ export function buildBuildingXY(city: City, center: [lat: number, lon: number]):
   const out = new Float32Array(city.B * 2);
   const lat0 = center[0];
   const lon0 = center[1];
-  const mPerLon = 111320 * Math.cos(lat0 * (Math.PI / 180));
+  const mPerLon = mPerDegLon(lat0);
   for (let v = 0; v < city.V; v++) {
     for (let b = city.bldOff[v]; b < city.bldOff[v + 1]; b++) {
       const lat = city.lat[v] + city.bldPts[b * 2] * GEOM_SCALE;
       const lon = city.lon[v] + city.bldPts[b * 2 + 1] * GEOM_SCALE;
       out[b * 2] = (lon / 1e7 - lon0) * mPerLon;
-      out[b * 2 + 1] = (lat / 1e7 - lat0) * 110540;
+      out[b * 2 + 1] = (lat / 1e7 - lat0) * M_PER_DEG_LAT;
     }
   }
   return out;

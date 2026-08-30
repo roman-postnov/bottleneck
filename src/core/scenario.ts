@@ -68,7 +68,6 @@ export function normalizeScenario(input: DeepPartial<Scenario> & { city: string 
     edits: (input.edits as Edit[] | undefined) ?? [],
   };
   if (input.exits) s.exits = [...(input.exits as number[])];
-  if (input.hazard) s.hazard = input.hazard as Scenario['hazard'];
   return s;
 }
 
@@ -96,7 +95,6 @@ export function resolveParams(s: Scenario): Params {
     ttSmoothing: s.routing.ttSmoothing,
 
     spillbackLoadThreshold: DEFAULTS.spillbackLoadThreshold,
-    hazardCheckSec: s.hazard?.checkSec ?? DEFAULTS.hazardCheckSec,
     busSeats: DEFAULTS.busSeats,
     horizonSec: DEFAULTS.horizonSec,
   };

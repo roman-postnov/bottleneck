@@ -14,12 +14,18 @@ export const DEFAULTS = {
   ttSmoothing: 0.3,
   srcInjectLanes: 1,
   spillbackLoadThreshold: 0.9,
-  hazardCheckSec: 60,
   busSeats: 40,
   horizonSec: 172800,
 } as const;
 
 // Index is the class code, which is also bits 5-7 of the flags byte (§3.2).
+// §11 defines the metrics, not the model, so these are not scenario parameters and do not
+// belong in DEFAULTS. They are here because src/core/sim.ts and src/core/metrics.ts both need
+// them and the window has to be the same number in both: one sizes the ring, the other divides
+// by it.
+export const OUTFLOW_WINDOW_SEC = 300;
+export const GRIDLOCK_LOAD = 0.95;
+
 export const HIGHWAY_CLASSES = [
   { name: 'motorway', lanes: 2, factor: 1.0, speedKmh: 100 },
   { name: 'trunk', lanes: 2, factor: 0.95, speedKmh: 80 },

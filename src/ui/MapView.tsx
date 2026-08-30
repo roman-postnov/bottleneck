@@ -27,7 +27,9 @@ import {
   createTracers,
   cumulative,
   dotError,
+  M_PER_DEG_LAT,
   MOVING,
+  mPerDegLon,
   onFrame,
   PARKED,
   parkedSlotAt,
@@ -322,14 +324,14 @@ function viewBounds(
   origin: [lon: number, lat: number],
 ): { x0: number; y0: number; x1: number; y1: number } {
   const b = handle.map.getBounds();
-  const mPerLon = 111320 * Math.cos(origin[1] * (Math.PI / 180));
+  const mPerLon = mPerDegLon(origin[1]);
   // A margin, so a car does not pop in at the edge of the window.
   const pad = 200;
   return {
     x0: (b.getWest() - origin[0]) * mPerLon - pad,
-    y0: (b.getSouth() - origin[1]) * 110540 - pad,
+    y0: (b.getSouth() - origin[1]) * M_PER_DEG_LAT - pad,
     x1: (b.getEast() - origin[0]) * mPerLon + pad,
-    y1: (b.getNorth() - origin[1]) * 110540 + pad,
+    y1: (b.getNorth() - origin[1]) * M_PER_DEG_LAT + pad,
   };
 }
 

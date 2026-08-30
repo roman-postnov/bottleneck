@@ -263,13 +263,22 @@ export function cumulative(
   return { cum, edgeLen };
 }
 
+/**
+ * The projection of §13.2, copied from src/worker/geometry.ts rather than imported: §15 forbids
+ * src/render from importing src/core, and buildNodeXY sits behind that line. The worker places
+ * the parked cars and this file places the moving ones, so the two have to agree to the metre --
+ * test/tracers.test.ts pins them together, the way _splitmix32 is pinned to src/core/rng.ts.
+ */
+export const M_PER_DEG_LAT = 110540;
+export const mPerDegLon = (latDeg: number): number => 111320 * Math.cos(latDeg * (Math.PI / 180));
+
 /** Lon/lat degrees to metre offsets from `center`, matching buildNodeXY in the worker. */
 export function toMeterOffsets(positions: Float64Array, center: [lat: number, lon: number]): Float32Array {
   const out = new Float32Array(positions.length);
-  const mPerLon = 111320 * Math.cos(center[0] * (Math.PI / 180));
+  const mPerLon = mPerDegLon(center[0]);
   for (let k = 0; k < positions.length; k += 2) {
     out[k] = (positions[k] - center[1]) * mPerLon;
-    out[k + 1] = (positions[k + 1] - center[0]) * 110540;
+    out[k + 1] = (positions[k + 1] - center[0]) * M_PER_DEG_LAT;
   }
   return out;
 }

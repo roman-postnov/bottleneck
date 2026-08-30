@@ -5,14 +5,13 @@ import { classOf, NO_TWIN } from './city.ts';
 import { recordTickStats } from './metrics.ts';
 import { mobilize, rayleighSigmaSec } from './mobilization.ts';
 import { nodeTransfer } from './nodeModel.ts';
-import { capVehS, storageVeh } from './params.ts';
+import { capVehS, OUTFLOW_WINDOW_SEC, srcInjectCapVehS, storageVeh, ttSec as ttSecOf } from './params.ts';
 import { buildField, observedCost } from './routing.ts';
 import type { City, Edit, FrameBuffers, HotEdit, Params, SimState } from './types.ts';
 
 // biome-ignore lint/performance/noBarrelFile: §16.6 -- the module's declared API is re-exported from its contract file, so the split stays invisible from outside
 export { metrics, updateFrameStats } from './metrics.ts';
 
-const OUTFLOW_WINDOW_SEC = 300;
 const MAX_TT_SEC = 65535; // ttSec is a Uint16 in SimState, and ringLen must equal it
 
 export function createSim(city: City, params: Params, edits: Edit[] = []): SimState {
@@ -27,8 +26,7 @@ export function createSim(city: City, params: Params, edits: Edit[] = []): SimSt
     cap[e] = capVehS(city.lanes[e], classOf(city.flags[e]), params.satFlowPerLane);
     storage[e] = storageVeh(city.lenM[e], city.lanes[e], params.jamSpacingM);
     const speedKmh = Math.max(1, city.speedKmh[e] * params.speedFactor);
-    const tt = Math.max(1, Math.round(city.lenM[e] / ((speedKmh * 1000) / 3600)));
-    ttSec[e] = Math.min(MAX_TT_SEC, tt);
+    ttSec[e] = Math.min(MAX_TT_SEC, ttSecOf(city.lenM[e], speedKmh));
     ringOff[e + 1] = ringOff[e] + ttSec[e];
   }
 
@@ -115,7 +113,7 @@ export function createSim(city: City, params: Params, edits: Edit[] = []): SimSt
     totalVeh,
     vehSecInNetwork: 0,
 
-    srcInjectCapVehS: (params.srcInjectLanes * params.satFlowPerLane) / 3600,
+    srcInjectCapVehS: srcInjectCapVehS(params.srcInjectLanes, params.satFlowPerLane),
     mobilizationSigmaSec: rayleighSigmaSec(params.mobilizationHalfMin),
     indexOfEdgeId,
     edgeIdOf,

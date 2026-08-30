@@ -4,11 +4,10 @@
 // the link in "copy link" reproduces the run that was on screen rather than one where the
 // road was shut from the start.
 
+import { NO_TWIN } from '../core/city.ts';
 import type { Edit } from '../core/types.ts';
 import { applyEdit, copyLink, removeEdit, reportError } from '../main/app.ts';
 import { useStore } from '../main/state.ts';
-
-const NO_TWIN = 0xffffffff;
 
 function what(edit: Edit): string {
   if (edit.op === 'addRoad') return 'added';

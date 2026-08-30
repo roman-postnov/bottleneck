@@ -1,9 +1,7 @@
 // Run statistics and the metric block of CONTRACTS.md §11.
 
+import { GRIDLOCK_LOAD, OUTFLOW_WINDOW_SEC } from './params.ts';
 import type { Metrics, SimState } from './types.ts';
-
-const OUTFLOW_WINDOW_SEC = 300; // §11: peak outflow is a five-minute moving window
-const GRIDLOCK_LOAD = 0.95;
 
 type Dsu = { parent: Int32Array; len: Float64Array };
 const dsuOf = new WeakMap<SimState, Dsu>();
