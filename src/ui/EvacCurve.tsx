@@ -11,6 +11,7 @@ export function EvacCurve(): React.ReactElement {
   const ref = useRef<HTMLCanvasElement>(null);
   const curve = useStore((s) => s.curve);
   const metrics = useStore((s) => s.metrics);
+  const theme = useStore((s) => s.theme);
 
   useEffect(() => {
     const canvas = ref.current;
@@ -31,8 +32,11 @@ export function EvacCurve(): React.ReactElement {
     for (let i = 0; i < curve.length; i += 2) tMax = Math.max(tMax, curve[i]);
     tMax = Math.ceil(tMax / 3600) * 3600;
 
-    g.strokeStyle = '#2a3038';
-    g.fillStyle = '#7c8794';
+    const ink = theme === 'light'
+      ? { grid: '#dbe1e8', text: '#5c6a78', line: '#1668a8', mark: '#a86a00' }
+      : { grid: '#2a3038', text: '#7c8794', line: '#4ea8de', mark: '#e8c33a' };
+    g.strokeStyle = ink.grid;
+    g.fillStyle = ink.text;
     g.font = '10px ui-monospace, monospace';
     g.lineWidth = 1;
     for (const [pct, label] of [[0, '0%'], [0.5, '50%'], [0.9, '90%'], [1, '']] as const) {
@@ -49,7 +53,7 @@ export function EvacCurve(): React.ReactElement {
     }
 
     if (curve.length >= 4) {
-      g.strokeStyle = '#4ea8de';
+      g.strokeStyle = ink.line;
       g.lineWidth = 1.8;
       g.beginPath();
       for (let i = 0; i < curve.length; i += 2) {
@@ -63,7 +67,7 @@ export function EvacCurve(): React.ReactElement {
 
     if (metrics?.t90Sec != null) {
       const x = PAD.l + (plotW * metrics.t90Sec) / tMax;
-      g.strokeStyle = '#e8c33a';
+      g.strokeStyle = ink.mark;
       g.setLineDash([3, 3]);
       g.beginPath();
       g.moveTo(x, PAD.t);
@@ -71,7 +75,7 @@ export function EvacCurve(): React.ReactElement {
       g.stroke();
       g.setLineDash([]);
     }
-  }, [curve, metrics]);
+  }, [curve, metrics, theme]);
 
   return <canvas className="curve" ref={ref} />;
 }

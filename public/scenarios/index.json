@@ -1,0 +1,32 @@
+[
+  {
+    "id": "paradise-2018",
+    "city": "paradise",
+    "label": "Paradise, 8 Nov 2018 — as it happened"
+  },
+  {
+    "id": "paradise-no-contraflow",
+    "city": "paradise",
+    "label": "Paradise — without the contraflow"
+  },
+  {
+    "id": "paradise-open-network",
+    "city": "paradise",
+    "label": "Paradise — if the fire had closed nothing"
+  },
+  {
+    "id": "mercer-baseline",
+    "city": "mercer",
+    "label": "Mercer Island — the small case"
+  },
+  {
+    "id": "sf-baseline",
+    "city": "sf",
+    "label": "San Francisco — everything open"
+  },
+  {
+    "id": "sf-bridge-closed",
+    "city": "sf",
+    "label": "San Francisco — Bay Bridge closed"
+  }
+]

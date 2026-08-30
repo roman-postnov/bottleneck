@@ -1,12 +1,30 @@
-:root {
+:root,
+:root[data-theme="dark"] {
   --bg: #0d1117;
   --panel: #12181f;
   --line: #232b35;
+  --field: #1a222c;
   --text: #d8dee6;
   --muted: #7c8794;
   --accent: #4ea8de;
   --warn: #e8c33a;
   --error: #d94436;
+  --good: #1a7f5a;
+  --overlay: rgba(13, 17, 23, 0.86);
+}
+
+:root[data-theme="light"] {
+  --bg: #f4f6f8;
+  --panel: #ffffff;
+  --line: #d8dee6;
+  --field: #f0f3f6;
+  --text: #14202c;
+  --muted: #5c6a78;
+  --accent: #1668a8;
+  --warn: #a86a00;
+  --error: #c0251a;
+  --good: #157f5c;
+  --overlay: rgba(255, 255, 255, 0.9);
 }
 
 * { box-sizing: border-box; }
@@ -21,7 +39,8 @@ body {
 }
 
 .app { display: flex; height: 100%; }
-.map { flex: 1; position: relative; background: var(--bg); }
+.stage { flex: 1; position: relative; min-width: 0; }
+.map { width: 100%; height: 100%; background: var(--bg); }
 
 .panel {
   width: 340px;
@@ -54,7 +73,7 @@ body {
 .row.slider span { width: 92px; text-align: right; font-variant-numeric: tabular-nums; }
 
 select, button, input[type="range"] {
-  background: #1a222c;
+  background: var(--field);
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -75,9 +94,9 @@ select { width: 100%; }
   border: 1px solid var(--line);
   border-radius: 4px;
   overflow: hidden;
-  background: #1a222c;
+  background: var(--field);
 }
-.bar .fill { position: absolute; inset: 0 auto 0 0; background: #1a7f5a; transition: width 0.2s linear; }
+.bar .fill { position: absolute; inset: 0 auto 0 0; background: var(--good); transition: width 0.2s linear; }
 .bar span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; }
 
 .check { display: flex; align-items: center; gap: 6px; color: var(--muted); }
@@ -93,7 +112,12 @@ select { width: 100%; }
 .metrics td { padding: 3px 0; vertical-align: top; }
 .metrics td:first-child { color: var(--muted); width: 46%; }
 .metrics td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
-.metrics tr.equity td { border-top: 1px solid var(--line); padding-top: 7px; }
+.metrics .big .value { font-size: 34px; letter-spacing: -0.01em; }
+.metrics .headline { display: flex; gap: 14px; font-variant-numeric: tabular-nums; font-size: 15px; }
+.metrics .headline em { font-style: normal; font-size: 11px; color: var(--muted); }
+.metrics .equity-line { border-top: 1px solid var(--line); padding-top: 8px; font-size: 12px; color: var(--muted); }
+.numbers summary { cursor: pointer; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+.numbers table { margin-top: 6px; }
 
 .probe { border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; }
 .probe .name { margin-bottom: 2px; }
@@ -115,3 +139,48 @@ footer { margin-top: auto; font-size: 11px; }
 .delta { font-size: 12px; font-variant-numeric: tabular-nums; }
 .delta.worse { color: #e08a52; }
 .delta.better { color: #4fae7f; }
+
+.row.title { align-items: baseline; }
+.row.title h1 { flex: 1; }
+button.ghost { min-width: 0; padding: 2px 8px; font-size: 11px; color: var(--muted); }
+button.primary { border-color: var(--accent); color: var(--accent); }
+.check.strong { color: var(--text); }
+.note { margin: 0; font-size: 11px; }
+
+.legend {
+  position: absolute;
+  left: 12px;
+  bottom: 26px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--overlay);
+  backdrop-filter: blur(3px);
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-width: 260px;
+  pointer-events: none;
+}
+.legend .ramp { height: 8px; border-radius: 2px; }
+.legend .ramp-labels { display: flex; justify-content: space-between; color: var(--muted); }
+.legend .key { display: flex; align-items: center; gap: 6px; }
+.legend .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.legend .dash { width: 16px; flex: none; border-top: 3px dashed; }
+
+.perf {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--overlay);
+  font: 11px/1.5 ui-monospace, monospace;
+  display: flex;
+  flex-direction: column;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.perf span { color: var(--muted); }

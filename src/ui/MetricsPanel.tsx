@@ -59,6 +59,23 @@ export function MetricsPanel(): React.ReactElement {
         )}
       </div>
 
+      <div className="headline">
+        <span>
+          {ready ? Math.round(ready.totalVeh).toLocaleString() : '—'} <em>vehicles</em>
+        </span>
+        <span>
+          {ready ? `${ready.maxFlowVehH.toLocaleString()}` : '—'} <em>veh/h out, at best</em>
+        </span>
+      </div>
+
+      {/* §11: with no census data the honest answer is "no data", never a zero. */}
+      <div className="equity-line">
+        no car of their own:{' '}
+        {carless === null ? '—' : carless === 0 ? 'no data' : carlessText(carless, busRuns)}
+      </div>
+
+      <details className="numbers">
+        <summary>all the numbers</summary>
       <table>
         <tbody>
           <tr>
@@ -109,13 +126,9 @@ export function MetricsPanel(): React.ReactElement {
             <td>min cut</td>
             <td>{ready ? `${ready.cutEdges.length} road${ready.cutEdges.length === 1 ? '' : 's'}` : '—'}</td>
           </tr>
-          <tr className="equity">
-            <td>no car access</td>
-            {/* §11: with no census data the honest answer is "no data", never a zero. */}
-            <td>{carless === null ? '—' : carless === 0 ? 'no data' : carlessText(carless, busRuns)}</td>
-          </tr>
         </tbody>
       </table>
+      </details>
 
       {probe && (
         <div className="probe">

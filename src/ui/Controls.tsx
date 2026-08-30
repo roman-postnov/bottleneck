@@ -1,51 +1,100 @@
 // Transport controls and the parameters a run is actually argued over.
 
-import { pause, play, reset, selectCity, setSpeed, updateScenario } from '../main/app.ts';
+import { pause, play, reset, selectCity, selectPreset, setSpeed, updateScenario } from '../main/app.ts';
 import { setState, useStore } from '../main/state.ts';
+import type { CityMeta } from '../core/types.ts';
 
 const SPEEDS = [1, 10, 60, 120, 300, 600];
+const CAPS = [10000, 40000, 100000, 200000];
 
-function hms(sec: number): string {
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  return `${h}:${String(m).padStart(2, '0')}`;
+
+/** Elapsed, not a wall clock: `22:41` was being read as twenty to eleven at night. */
+function elapsed(sec: number): string {
+  const total = Math.round(sec / 60);
+  return `${Math.floor(total / 60)}h ${String(total % 60).padStart(2, '0')}m`;
 }
+
+/** The catalogue carries the test fixtures alongside the cities; `synth.ts` wrote their notes. */
+const isFixture = (c: CityMeta): boolean => (c.notes ?? '').startsWith('synth.ts');
 
 export function Controls(): React.ReactElement {
   const cities = useStore((s) => s.cities);
   const cityId = useStore((s) => s.cityId);
+  const presets = useStore((s) => s.presets);
+  const presetId = useStore((s) => s.presetId);
   const status = useStore((s) => s.status);
   const clock = useStore((s) => s.clock);
   const speedX = useStore((s) => s.speedX);
   const scenario = useStore((s) => s.scenario);
   const ready = useStore((s) => s.ready);
   const showCut = useStore((s) => s.showCut);
+  const particles = useStore((s) => s.particles);
+  const particleCap = useStore((s) => s.particleCap);
 
   const running = status === 'running';
   const pct = ready && ready.totalVeh > 0 ? clock.evacuated / ready.totalVeh : 0;
+  const real = cities.filter((c) => !isFixture(c));
+  const fixtures = cities.filter(isFixture);
 
   return (
     <div className="controls">
+      <select
+        value={presetId ?? ''}
+        onChange={(e) => {
+          if (e.target.value) void selectPreset(e.target.value);
+        }}
+      >
+        <option value="">— pick a run —</option>
+        {presets.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.label}
+          </option>
+        ))}
+      </select>
+
       <select
         value={cityId ?? ''}
         onChange={(e) => {
           void selectCity(e.target.value);
         }}
       >
-        {cities.map((c) => (
+        {real.map((c) => (
           <option key={c.id} value={c.id}>
             {c.name}
           </option>
         ))}
+        {fixtures.length > 0 && (
+          <optgroup label="test fixtures">
+            {fixtures.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </optgroup>
+        )}
       </select>
 
       <div className="row">
-        <button onClick={running ? pause : play} disabled={status === 'loading'}>
+        <button className="primary" onClick={running ? pause : play} disabled={status === 'loading'}>
           {running ? 'Pause' : 'Play'}
         </button>
         <button onClick={reset}>Reset</button>
-        <span className="clock">{hms(clock.t)}</span>
+        <span className="clock">{elapsed(clock.t)}</span>
       </div>
+
+      <div className="bar">
+        <div className="fill" style={{ width: `${(pct * 100).toFixed(1)}%` }} />
+        <span>{(pct * 100).toFixed(1)}% evacuated</span>
+      </div>
+
+      <label className="check strong">
+        <input
+          type="checkbox"
+          checked={showCut}
+          onChange={(e) => setState({ showCut: e.target.checked })}
+        />
+        show the bottleneck — every car has to pass here
+      </label>
 
       <div className="row">
         <label>Speed</label>
@@ -60,11 +109,13 @@ export function Controls(): React.ReactElement {
           actual ×{clock.actualX < 10 ? clock.actualX.toFixed(1) : clock.actualX.toFixed(0)}
         </span>
       </div>
-
-      <div className="bar">
-        <div className="fill" style={{ width: `${(pct * 100).toFixed(1)}%` }} />
-        <span>{(pct * 100).toFixed(1)}% evacuated</span>
-      </div>
+      {clock.actualX > 0 && clock.actualX < speedX * 0.9 && (
+        // §1.1: the worker computes every tick and drops frames, so this is how fast the
+        // picture moves, not how much of the simulation was skipped.
+        <p className="note muted">
+          Every tick is computed; frames are dropped to keep up. Nothing is being skipped.
+        </p>
+      )}
 
       {scenario && (
         <>
@@ -121,11 +172,26 @@ export function Controls(): React.ReactElement {
           <label className="check">
             <input
               type="checkbox"
-              checked={showCut}
-              onChange={(e) => setState({ showCut: e.target.checked })}
+              checked={particles}
+              onChange={(e) => setState({ particles: e.target.checked })}
             />
-            highlight the minimum cut
+            show traffic
           </label>
+          {particles && (
+            <div className="row">
+              <label>Dots</label>
+              <select
+                value={particleCap}
+                onChange={(e) => setState({ particleCap: Number(e.target.value) })}
+              >
+                {CAPS.map((c) => (
+                  <option key={c} value={c}>
+                    {(c / 1000).toFixed(0)}k
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </>
       )}
     </div>

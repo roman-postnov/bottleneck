@@ -1,21 +1,44 @@
+import { useEffect } from 'react';
 import { MapView } from './MapView.tsx';
 import { Controls } from './Controls.tsx';
 import { EvacCurve } from './EvacCurve.tsx';
 import { MetricsPanel } from './MetricsPanel.tsx';
 import { Interventions } from './Interventions.tsx';
-import { useStore } from '../main/state.ts';
+import { Legend } from './Legend.tsx';
+import { Perf } from './Perf.tsx';
+import { setState, useStore } from '../main/state.ts';
+
+const showPerf = new URLSearchParams(location.search).get('perf') === '1';
 
 export function App(): React.ReactElement {
   const status = useStore((s) => s.status);
   const error = useStore((s) => s.error);
+  const theme = useStore((s) => s.theme);
   const meta = useStore((s) => s.ready?.meta ?? null);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   return (
     <div className="app">
-      <MapView />
+      <div className="stage">
+        <MapView />
+        <Legend />
+        {showPerf && <Perf />}
+      </div>
       <aside className="panel">
         <header>
-          <h1>Bottleneck</h1>
+          <div className="row title">
+            <h1>Bottleneck</h1>
+            <button
+              className="ghost"
+              title="switch theme"
+              onClick={() => setState({ theme: theme === 'light' ? 'dark' : 'light' })}
+            >
+              {theme === 'light' ? 'dark' : 'light'}
+            </button>
+          </div>
           <p className="muted">{meta?.blurb ?? 'evacuation capacity of a city'}</p>
         </header>
         {error && <div className="error">{error}</div>}

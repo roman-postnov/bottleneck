@@ -3,7 +3,7 @@
 // reaches React (see state.ts).
 
 import { SimClient } from './simClient.ts';
-import { getState, setState } from './state.ts';
+import { getState, setState, type PresetInfo } from './state.ts';
 import { decodeScenario, defaultScenario, encodeScenario, normalizeScenario } from '../core/scenario.ts';
 import type { CityMeta, Edit, Scenario } from '../core/types.ts';
 import type { FrameMessage, ReadyMessage } from '../worker/protocol.ts';
@@ -118,7 +118,7 @@ export async function boot(): Promise<void> {
     const res = await fetch('cities/index.json');
     if (!res.ok) throw new Error(`cities/index.json: ${res.status}`);
     const cities = (await res.json()) as CityMeta[];
-    setState({ cities });
+    setState({ cities, presets: await presetIndex() });
     const query = new URLSearchParams(location.search);
 
     // ?s= carries the whole run (§9). It wins over ?city=: a scenario names its own city, and
@@ -133,11 +133,7 @@ export async function boot(): Promise<void> {
 
     const preset = query.get('preset');
     if (preset) {
-      const r = await fetch(`scenarios/${preset}.json`);
-      if (!r.ok) throw new Error(`scenarios/${preset}.json: ${r.status}`);
-      const scenario = normalizeScenario((await r.json()) as Scenario);
-      await selectCity(scenario.city);
-      updateScenario(() => scenario);
+      await selectPreset(preset);
       return;
     }
 
@@ -148,10 +144,29 @@ export async function boot(): Promise<void> {
   }
 }
 
+/** The presets of §18 are files; without a list of them the app can only reach one by URL. */
+async function presetIndex(): Promise<PresetInfo[]> {
+  try {
+    const r = await fetch('scenarios/index.json');
+    return r.ok ? ((await r.json()) as PresetInfo[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function selectPreset(id: string): Promise<void> {
+  const r = await fetch(`scenarios/${id}.json`);
+  if (!r.ok) throw new Error(`scenarios/${id}.json: ${r.status}`);
+  const scenario = normalizeScenario((await r.json()) as Scenario);
+  await selectCity(scenario.city);
+  updateScenario(() => scenario);
+  setState({ presetId: id });
+}
+
 export async function selectCity(id: string): Promise<void> {
   const meta = getState().cities.find((c) => c.id === id);
   if (!meta) return;
-  setState({ status: 'loading', cityId: id, probe: null, showCut: false, baselineT90: null, link: null });
+  setState({ status: 'loading', cityId: id, presetId: null, probe: null, showCut: false, baselineT90: null, link: null });
   lastReady = null;
   // Absolute: a module worker resolves a relative fetch against its own script URL,
   // not against the page, so `cities/x.bin` would land under /src/worker/.

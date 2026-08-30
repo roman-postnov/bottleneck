@@ -12,7 +12,10 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 
 setWorkerUrl(maplibreWorkerUrl);
 
-export const DARK_BASEMAP = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+export const BASEMAP = {
+  dark: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+  light: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+} as const;
 
 export type MapHandle = {
   map: MapLibreMap;
@@ -20,6 +23,7 @@ export type MapHandle = {
   setLayers(layers: Layer[]): void;
   flyTo(center: [number, number], zoom: number): void;
   onPick(cb: (index: number | null) => void): void;
+  setBasemap(url: string | null): void;
   destroy(): void;
 };
 
@@ -27,7 +31,7 @@ export function initMap(
   container: HTMLElement,
   center: [number, number],
   zoom: number,
-  styleUrl: string | null = DARK_BASEMAP,
+  styleUrl: string | null = BASEMAP.light,
 ): MapHandle {
   container.style.position = 'relative';
 
@@ -68,6 +72,25 @@ export function initMap(
     useDevicePixels: true,
   });
 
+  /**
+   * Both CARTO styles draw their own full street grid, and on a city the size of San Francisco
+   * it is as loud as ours -- an empty road of theirs and a jammed road of ours end up the same
+   * weight. Theirs is context, so it gets pushed back.
+   */
+  const dimBasemapRoads = (): void => {
+    for (const layer of map.getStyle()?.layers ?? []) {
+      if (layer.type !== 'line') continue;
+      if (!/road|street|bridge|tunnel|highway|motorway|transit/i.test(layer.id)) continue;
+      try {
+        map.setPaintProperty(layer.id, 'line-opacity', 0.28);
+      } catch {
+        // A style can declare a paint property this layer does not accept; skipping it is the
+        // whole handling.
+      }
+    }
+  };
+  map.on('style.load', dimBasemapRoads);
+
   const sync = (): void => deck.setProps({ viewState: viewState() });
   map.on('move', sync);
   map.on('resize', sync);
@@ -91,6 +114,9 @@ export function initMap(
     },
     onPick(cb) {
       pickCb = cb;
+    },
+    setBasemap(url) {
+      map.setStyle(url ?? { version: 8, sources: {}, layers: [] });
     },
     destroy() {
       deck.finalize();

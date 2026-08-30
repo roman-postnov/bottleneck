@@ -6,14 +6,30 @@
 
 import { useSyncExternalStore } from 'react';
 import type { CityMeta, Metrics, Scenario } from '../core/types.ts';
+import type { Theme } from '../render/palette.ts';
 import type { ReadyMessage, WorkerToMain } from '../worker/protocol.ts';
 
 export type RunStatus = 'idle' | 'loading' | 'ready' | 'running' | 'paused' | 'done' | 'error';
 
 export type ProbeResult = Extract<WorkerToMain, { type: 'probeResult' }>;
 
+export type PresetInfo = { id: string; city: string; label: string };
+
+/** Milliseconds per frame, split the way §13 splits the frame loop. */
+export type FrameCost = {
+  total: number;
+  paint: number;
+  step: number;
+  place: number;
+  upload: number;
+  dots: number;
+  zoom: number;
+};
+
 export type UiState = {
   cities: CityMeta[];
+  presets: PresetInfo[];
+  presetId: string | null;
   cityId: string | null;
   scenario: Scenario | null;
   status: RunStatus;
@@ -25,6 +41,11 @@ export type UiState = {
   probe: ProbeResult | null;
   speedX: number;
   showCut: boolean;
+  theme: Theme;
+  particles: boolean;
+  /** §13.2 names 40 000 as the budget; it is a default here, not a ceiling. */
+  particleCap: number;
+  perf: FrameCost | null;
   /** T90 of the last completed run that carried no edits, for the delta an intervention
    *  is judged by. Cleared when the city changes. */
   baselineT90: number | null;
@@ -36,6 +57,8 @@ export type UiState = {
 
 const initial: UiState = {
   cities: [],
+  presets: [],
+  presetId: null,
   cityId: null,
   scenario: null,
   status: 'idle',
@@ -47,6 +70,10 @@ const initial: UiState = {
   probe: null,
   speedX: 60,
   showCut: false,
+  theme: 'light',
+  particles: true,
+  particleCap: 40000,
+  perf: null,
   baselineT90: null,
   link: null,
   edgeNames: {},

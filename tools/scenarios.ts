@@ -100,25 +100,42 @@ function campFireClosures(c: City): Edit[] {
   ];
 }
 
-function write(name: string, s: Scenario): void {
+const index: Array<{ id: string; city: string; label: string }> = [];
+
+/** The label is written here rather than in the app: the file and the sentence that describes
+ *  it are derived from the same place, so a renamed preset cannot keep an old description. */
+function write(name: string, label: string, s: Scenario): void {
   writeFileSync(`public/scenarios/${name}.json`, JSON.stringify(s, null, 2) + '\n');
+  index.push({ id: name, city: s.city, label });
   console.log(`${name}: ${s.edits.length} edits`);
 }
 
 const paradise = city('paradise');
 const contraflow = skywayContraflow(paradise);
 
-write('paradise-2018', { ...defaultScenario('paradise'), edits: [...contraflow, ...campFireClosures(paradise)] });
-write('paradise-open-network', { ...defaultScenario('paradise'), edits: contraflow });
-write('paradise-no-contraflow', { ...defaultScenario('paradise'), edits: campFireClosures(paradise) });
-write('mercer-baseline', defaultScenario('mercer'));
+write('paradise-2018', 'Paradise, 8 Nov 2018 — as it happened', {
+  ...defaultScenario('paradise'),
+  edits: [...contraflow, ...campFireClosures(paradise)],
+});
+write('paradise-no-contraflow', 'Paradise — without the contraflow', {
+  ...defaultScenario('paradise'),
+  edits: campFireClosures(paradise),
+});
+write('paradise-open-network', 'Paradise — if the fire had closed nothing', {
+  ...defaultScenario('paradise'),
+  edits: contraflow,
+});
+write('mercer-baseline', 'Mercer Island — the small case', defaultScenario('mercer'));
 
 const sf = city('sf');
 // I-80 carries the ceremonial name of the Interstate system in OSM; the deck of the Bay
 // Bridge is tagged with it and not with the bridge's own name.
 const bayBridge = crossingEdges(sf, 'Dwight D. Eisenhower Highway');
-write('sf-baseline', defaultScenario('sf'));
-write('sf-bridge-closed', {
+write('sf-baseline', 'San Francisco — everything open', defaultScenario('sf'));
+write('sf-bridge-closed', 'San Francisco — Bay Bridge closed', {
   ...defaultScenario('sf'),
   edits: bayBridge.map((e) => ({ op: 'close' as const, edgeId: e })),
 });
+
+writeFileSync('public/scenarios/index.json', JSON.stringify(index, null, 2) + '\n');
+console.log(`index.json: ${index.length} presets`);
