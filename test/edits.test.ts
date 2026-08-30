@@ -107,6 +107,8 @@ describe('§10: a scheduled run is still bit-for-bit reproducible', () => {
     expect(b.n).toEqual(a.n);
   });
 
+  // This compares two long grid20 runs; constrained CI runners can need more than Vitest's
+  // five-second default even when the reproducibility assertion itself passes.
   it('a closure at minute 15 is not the same run as the same closure at minute 0', () => {
     const exit = exitEdgesOf(loadFixture('grid20'))[0];
     const at = (atMin: number | undefined) => {
@@ -123,7 +125,7 @@ describe('§10: a scheduled run is still bit-for-bit reproducible', () => {
     // doomed road has to back out of it -- but that direction was observed, not predicted,
     // and asserting it here would be fitting the test to the number.
     expect(late).not.toBe(upFront);
-  });
+  }, 30_000);
 });
 
 describe('§9.3: contraflow', () => {

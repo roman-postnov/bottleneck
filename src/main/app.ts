@@ -12,6 +12,11 @@ const CLOCK_INTERVAL_MS = 200;
 /** Acceleration is averaged over a second: at x1 a 200 ms window reads 0 or 5, never 1. */
 const SPEED_WINDOW_MS = 1000;
 
+/** Resolve files copied from public/ against Vite's root, including a Pages project path. */
+function assetUrl(path: string): string {
+  return new URL(path, new URL(import.meta.env.BASE_URL, location.origin)).href;
+}
+
 export type NetworkMessage = Extract<WorkerToMain, { type: 'network' }>;
 
 export type FrameSink = {
@@ -143,7 +148,7 @@ export function reportError(e: unknown): void {
 export async function boot(): Promise<void> {
   setState({ status: 'loading' });
   try {
-    const res = await fetch('cities/index.json');
+    const res = await fetch(assetUrl('cities/index.json'));
     if (!res.ok) throw new Error(`cities/index.json: ${res.status}`);
     const cities = (await res.json()) as CityMeta[];
     setState({ cities, presets: await presetIndex() });
@@ -175,7 +180,7 @@ export async function boot(): Promise<void> {
 /** The presets of §18 are files; without a list of them the app can only reach one by URL. */
 async function presetIndex(): Promise<PresetInfo[]> {
   try {
-    const r = await fetch('scenarios/index.json');
+    const r = await fetch(assetUrl('scenarios/index.json'));
     return r.ok ? ((await r.json()) as PresetInfo[]) : [];
   } catch {
     return [];
@@ -183,7 +188,7 @@ async function presetIndex(): Promise<PresetInfo[]> {
 }
 
 export async function selectPreset(id: string): Promise<void> {
-  const r = await fetch(`scenarios/${id}.json`);
+  const r = await fetch(assetUrl(`scenarios/${id}.json`));
   if (!r.ok) throw new Error(`scenarios/${id}.json: ${r.status}`);
   const scenario = normalizeScenario((await r.json()) as Scenario);
   selectCity(scenario.city);
@@ -208,7 +213,7 @@ export function selectCity(id: string): void {
   lastReady = null;
   // Absolute: a module worker resolves a relative fetch against its own script URL,
   // not against the page, so `cities/x.bin` would land under /src/worker/.
-  client.init(new URL(`cities/${id}.bin`, location.href).href, meta);
+  client.init(assetUrl(`cities/${id}.bin`), meta);
   const scenario = defaultScenario(id);
   setState({ scenario });
   client.configure(scenario);

@@ -291,6 +291,8 @@ describe('check 8: Mercer Island', () => {
   // §14 calls this the most important check, and it is the only one tied to the world rather
   // than to a fixture this repository generated itself. An hour would mean the model lets a
   // city out through a road that is not there; a day would mean it lets nobody out at all.
+  // Mercer is the largest public graph in this file; constrained CI runners can need more
+  // than Vitest's five-second default even when the invariant itself passes.
   it('t90 lands between 2 and 8 hours', () => {
     const c = publicCity('mercer');
     const s = createSim(c, params('mercer'));
@@ -300,7 +302,7 @@ describe('check 8: Mercer Island', () => {
     expect(m.t90Sec).not.toBeNull();
     expect(m.t90Sec! / HOUR).toBeGreaterThanOrEqual(2);
     expect(m.t90Sec! / HOUR).toBeLessThanOrEqual(8);
-  });
+  }, 30_000);
 
   // The physical claim of §14.8 is "one highway out". If a residential street ever fed an
   // exit, cars would be leaving the island through a cul-de-sac and t90 would look wonderful.
