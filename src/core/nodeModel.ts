@@ -43,7 +43,7 @@ function allocate(s: SimState, P: number, F: number): void {
     }
 
     for (let p = 0; p < P; p++) {
-      if (!ndSat[p] || !ndActive[p]) continue;
+      if (!(ndSat[p] && ndActive[p])) continue;
       out[p] = d[p];
       rem -= d[p];
       ndActive[p] = 0;
@@ -74,7 +74,7 @@ export function nodeTransfer(s: SimState, v: number): void {
   // FIFO: the node moves at the pace of the tightest direction it needs. Any share aimed at
   // a full edge holds up the ENTIRE node -- this is spillback, and it is the effect the
   // whole project exists to show. Relaxing it here quietly removes the physics.
-  let F = Infinity;
+  let F = Number.POSITIVE_INFINITY;
   let hasO = false;
   for (let o = a; o < b; o++) {
     if (split[o] <= 0 || blocked[o]) continue;

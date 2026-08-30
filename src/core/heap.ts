@@ -5,6 +5,7 @@
 export class IndexedMinHeap {
   private readonly heap: Uint32Array;
   private readonly pos: Int32Array;
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: read as `const { key } = this` in siftUp and siftDown, which the rule does not follow
   private key: Float32Array;
   size = 0;
 
@@ -49,8 +50,9 @@ export class IndexedMinHeap {
     return top;
   }
 
-  private siftUp(i: number): void {
+  private siftUp(start: number): void {
     const { heap, pos, key } = this;
+    let i = start;
     const node = heap[i];
     const k = key[node];
     while (i > 0) {
@@ -65,8 +67,9 @@ export class IndexedMinHeap {
     pos[node] = i;
   }
 
-  private siftDown(i: number): void {
+  private siftDown(start: number): void {
     const { heap, pos, key, size } = this;
+    let i = start;
     const node = heap[i];
     const k = key[node];
     for (;;) {

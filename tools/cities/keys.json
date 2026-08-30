@@ -3,12 +3,7 @@
   "name": "Florida Keys, FL",
   "blurb": "82,874 residents on a 180 km chain of islands. One road out — US-1.",
   "pbf": "data/raw/florida-latest.osm.pbf",
-  "bbox": [
-    24.5,
-    -82.0,
-    25.3,
-    -80.2
-  ],
+  "bbox": [24.5, -82.0, 25.3, -80.2],
   "center": [24.93, -81.08],
   "zoom": 9,
   "population": 82874,

@@ -1,8 +1,8 @@
 // The routing field, from CONTRACTS.md §6.
 
-import { describe, it, expect } from 'vitest';
-import { buildField, freeFlowCost } from '../src/core/routing.ts';
+import { describe, expect, it } from 'vitest';
 import { DEFAULTS } from '../src/core/params.ts';
+import { buildField, freeFlowCost } from '../src/core/routing.ts';
 import { loadFixture, tinyCity } from './helpers.ts';
 
 describe('buildField: cost', () => {
@@ -10,7 +10,7 @@ describe('buildField: cost', () => {
     const c = loadFixture('grid20');
     const f = buildField(c, c.exitNode, freeFlowCost(c), new Uint8Array(c.E), 0);
     for (let i = 0; i < c.X; i++) expect(f.cost[c.exitNode[i]]).toBe(0);
-    for (let i = 0; i < c.S; i++) expect(f.cost[c.srcNode[i]]).toBeLessThan(Infinity);
+    for (let i = 0; i < c.S; i++) expect(f.cost[c.srcNode[i]]).toBeLessThan(Number.POSITIVE_INFINITY);
   });
 
   it('cost equals the free-flow time along the chain', () => {
@@ -19,7 +19,7 @@ describe('buildField: cost', () => {
     const f = buildField(c, c.exitNode, cost, new Uint8Array(c.E), 0);
     // Walking from any node along its own best out-edge must spend exactly cost[v].
     for (let v = 0; v < c.V; v++) {
-      if (f.cost[v] === Infinity || c.isExit[v]) continue;
+      if (f.cost[v] === Number.POSITIVE_INFINITY || c.isExit[v]) continue;
       let spent = 0;
       let cur = v;
       for (let guard = 0; guard < c.V + 2 && !c.isExit[cur]; guard++) {
@@ -46,7 +46,7 @@ describe('buildField: cost', () => {
       exits: [2],
     });
     const f = buildField(c, c.exitNode, freeFlowCost(c), new Uint8Array(c.E), 0);
-    expect(f.cost[3]).toBe(Infinity);
+    expect(f.cost[3]).toBe(Number.POSITIVE_INFINITY);
     expect(f.next[3]).toBe(-1);
     for (let e = c.csrOff[3]; e < c.csrOff[4]; e++) expect(f.split[e]).toBe(0);
   });
@@ -62,21 +62,18 @@ describe('buildField: cost', () => {
 
 describe('buildField: split', () => {
   // Sanity check 16.
-  it.each(['grid20', 'line10', 'island8'])(
-    'on %s the split of every node sums to 1 or 0',
-    (name) => {
-      const c = loadFixture(name);
-      for (const theta of [0, DEFAULTS.logitTheta, 1.0]) {
-        const f = buildField(c, c.exitNode, freeFlowCost(c), new Uint8Array(c.E), theta);
-        for (let v = 0; v < c.V; v++) {
-          let sum = 0;
-          for (let e = c.csrOff[v]; e < c.csrOff[v + 1]; e++) sum += f.split[e];
-          const ok = Math.abs(sum - 1) < 1e-6 || Math.abs(sum) < 1e-6;
-          expect(ok, `node ${v}, theta ${theta}, sum ${sum}`).toBe(true);
-        }
+  it.each(['grid20', 'line10', 'island8'])('on %s the split of every node sums to 1 or 0', (name) => {
+    const c = loadFixture(name);
+    for (const theta of [0, DEFAULTS.logitTheta, 1.0]) {
+      const f = buildField(c, c.exitNode, freeFlowCost(c), new Uint8Array(c.E), theta);
+      for (let v = 0; v < c.V; v++) {
+        let sum = 0;
+        for (let e = c.csrOff[v]; e < c.csrOff[v + 1]; e++) sum += f.split[e];
+        const ok = Math.abs(sum - 1) < 1e-6 || Math.abs(sum) < 1e-6;
+        expect(ok, `node ${v}, theta ${theta}, sum ${sum}`).toBe(true);
       }
-    },
-  );
+    }
+  });
 
   it('theta = 0 puts everything on one edge, ties going to the lower index', () => {
     const c = tinyCity({

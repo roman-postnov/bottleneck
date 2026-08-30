@@ -8,12 +8,15 @@
 //   node tools/preprocess.ts mercer
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import { CityBuilder, haversineM } from './cityBuilder.ts';
-import type { BuildingRec } from './cityBuilder.ts';
-import { upsertCatalogue } from './catalogue.ts';
 import { MAX_EDGE_LEN_M, parseCity, stronglyConnectedComponents, validateCity } from '../src/core/city.ts';
 import { CLASS_CODE, HIGHWAY_CLASSES } from '../src/core/params.ts';
 import type { CityMeta, LatLng } from '../src/core/types.ts';
+import { upsertCatalogue } from './catalogue.ts';
+import type { BuildingRec } from './cityBuilder.ts';
+import { CityBuilder, haversineM } from './cityBuilder.ts';
+
+/** `50`, `50 mph`, `30mph` -- the forms OSM actually carries. */
+const MAXSPEED = /^(\d+(?:\.\d+)?)\s*(mph)?$/i;
 
 export type Tags = Record<string, string>;
 export type Bbox = [number, number, number, number]; // minLat, minLon, maxLat, maxLon
@@ -106,7 +109,7 @@ export function classCode(highway: string): number {
 export function speedKmh(tags: Tags): number {
   const raw = tags.maxspeed;
   if (raw) {
-    const m = /^(\d+(?:\.\d+)?)\s*(mph)?$/i.exec(raw.trim());
+    const m = MAXSPEED.exec(raw.trim());
     if (m) {
       const v = Math.round(Number(m[1]) * (m[2] ? 1.609344 : 1));
       if (v >= 5 && v <= 255) return v;
@@ -143,18 +146,15 @@ export function taggedLanes(tags: Tags, side: 'forward' | 'backward'): number | 
   if (total === undefined) return null;
   const n = Number.parseFloat(total);
   if (!Number.isFinite(n)) return null;
-  const per = explicit !== undefined ? n : n / (oneway ? 1 : 2);
+  const per = explicit === undefined ? n / (oneway ? 1 : 2) : n;
   return Math.max(1, Math.floor(per));
 }
 
 export function lanes(tags: Tags, side: 'forward' | 'backward'): number {
-  return (
-    taggedLanes(tags, side) ?? HIGHWAY_CLASSES[classCode(tags.highway ?? 'residential')].lanes
-  );
+  return taggedLanes(tags, side) ?? HIGHWAY_CLASSES[classCode(tags.highway ?? 'residential')].lanes;
 }
 
-const roadKey = (t: Tags): string | null =>
-  t.name === undefined ? null : `${t.name}\u0000${t.highway ?? ''}`;
+const roadKey = (t: Tags): string | null => (t.name === undefined ? null : `${t.name}\u0000${t.highway ?? ''}`);
 
 /**
  * Fills the lane count OSM left off a segment from the other segments of the same road
@@ -198,8 +198,7 @@ export function inferLanes(runs: Run[]): (tags: Tags, side: 'forward' | 'backwar
 
 // ---------------------------------------------------------------- §4 steps 1-2: clip, collapse
 
-const inside = (b: Bbox, p: LatLng): boolean =>
-  p[0] >= b[0] && p[0] <= b[2] && p[1] >= b[1] && p[1] <= b[3];
+const inside = (b: Bbox, p: LatLng): boolean => p[0] >= b[0] && p[0] <= b[2] && p[1] >= b[1] && p[1] <= b[3];
 
 /**
  * Keeps the maximal runs of in-bbox nodes. An exit-class way additionally keeps the first node
@@ -389,7 +388,7 @@ export function splitLongArcs(g: Graph, maxLenM: number = MAX_EDGE_LEN_M): Graph
     const theirs = remap.get(t)!;
     if (mine.length !== theirs.length) continue;
     for (let k = 0; k < mine.length; k++) {
-      out[mine[k]].twin = theirs[theirs.length - 1 - k];
+      out[mine[k]].twin = theirs[1 + k];
     }
   }
   return { ...g, arcs: out };
@@ -460,7 +459,7 @@ export function assignBuildings(
   const cellLon = BUILDING_RADIUS_M / (111320 * Math.max(0.05, Math.cos((lat0 * Math.PI) / 180)));
 
   const cells = new Map<string, number[]>();
-  const key = (i: number, j: number): string => i + ':' + j;
+  const key = (i: number, j: number): string => `${i}:${j}`;
   for (const v of cand) {
     const k = key(Math.floor(g.nodes[v][0] / cellLat), Math.floor(g.nodes[v][1] / cellLon));
     const list = cells.get(k);
@@ -509,9 +508,7 @@ export function assignBuildings(
  * road that still leads to a candidate. A residential street clipped at the border leads
  * nowhere and is dropped instead, which is the point: cars must not escape through a dead end.
  */
-export function pruneToLargestComponent(
-  g: Graph,
-): { graph: Graph; droppedNodes: number; droppedResidentialM: number } {
+export function pruneToLargestComponent(g: Graph): { graph: Graph; droppedNodes: number; droppedResidentialM: number } {
   const V = g.nodes.length;
   const order = [...g.arcs.keys()].sort((x, y) => g.arcs[x].from - g.arcs[y].from || x - y);
   const csrOff = new Uint32Array(V + 1);
@@ -535,17 +532,24 @@ export function pruneToLargestComponent(
 
   const leadsOut = new Uint8Array(V);
   const stack: number[] = [];
-  for (let v = 0; v < V; v++) if (candidate[v]) { leadsOut[v] = 1; stack.push(v); }
+  for (let v = 0; v < V; v++)
+    if (candidate[v]) {
+      leadsOut[v] = 1;
+      stack.push(v);
+    }
   const into = new Map<number, number[]>();
   for (const a of g.arcs) {
     const list = into.get(a.to);
     if (list) list.push(a.from);
     else into.set(a.to, [a.from]);
   }
-  while (stack.length) {
+  while (stack.length > 0) {
     const v = stack.pop()!;
     for (const u of into.get(v) ?? []) {
-      if (!leadsOut[u]) { leadsOut[u] = 1; stack.push(u); }
+      if (!leadsOut[u]) {
+        leadsOut[u] = 1;
+        stack.push(u);
+      }
     }
   }
 
@@ -661,7 +665,7 @@ function main(cityId: string): void {
   const buf = b.serialize();
   const city = parseCity(buf);
   const errs = validateCity(city);
-  if (errs.length) {
+  if (errs.length > 0) {
     for (const e of errs) console.error('  invalid:', e);
     throw new Error(`${cityId}: ${errs.length} validator errors (§3.3)`);
   }
@@ -675,9 +679,7 @@ function main(cityId: string): void {
 
   const notes: string[] = [
     `Population: ${cfg.populationSource}; roadlength mode (§4 step 8).`,
-    cfg.carlessSource
-      ? `Carless: ${cfg.carlessSource}.`
-      : 'Carless: no census data, zeros recorded (§4 step 9).',
+    cfg.carlessSource ? `Carless: ${cfg.carlessSource}.` : 'Carless: no census data, zeros recorded (§4 step 9).',
     cfg.exits === 'auto'
       ? 'Exits found automatically where motorway/trunk/primary roads cross the bbox.'
       : `Exits listed by name (§4 step 7): ${cfg.exits.join(', ')}.`,
@@ -704,7 +706,7 @@ function main(cityId: string): void {
   };
 
   writeFileSync(`public/cities/${cfg.id}.bin`, Buffer.from(buf));
-  writeFileSync(`public/cities/${cfg.id}.json`, JSON.stringify(meta, null, 2) + '\n');
+  writeFileSync(`public/cities/${cfg.id}.json`, `${JSON.stringify(meta, null, 2)}\n`);
   upsertCatalogue([meta], true);
 
   console.log(

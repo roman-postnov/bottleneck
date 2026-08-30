@@ -1,7 +1,7 @@
 // What the colours mean. Without it the map is a pretty picture with no reading.
 
-import { PALETTE, LUT_SIZE } from '../render/palette.ts';
 import { useStore } from '../main/state.ts';
+import { LUT_SIZE, PALETTE } from '../render/palette.ts';
 
 function gradient(theme: 'dark' | 'light'): string {
   const lut = PALETTE[theme].load;
@@ -43,10 +43,7 @@ export function Legend(): React.ReactElement | null {
           </div>
           {showParked && (
             <div className="key">
-              <i
-                className="dot"
-                style={{ background: `rgba(${parked[0]},${parked[1]},${parked[2]},0.7)` }}
-              />
+              <i className="dot" style={{ background: `rgba(${parked[0]},${parked[1]},${parked[2]},0.7)` }} />
               still in the driveway
             </div>
           )}

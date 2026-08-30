@@ -34,10 +34,7 @@ export class SimClient {
     });
   }
 
-  on<K extends WorkerToMain['type']>(
-    type: K,
-    cb: (msg: Extract<WorkerToMain, { type: K }>) => void,
-  ): () => void {
+  on<K extends WorkerToMain['type']>(type: K, cb: (msg: Extract<WorkerToMain, { type: K }>) => void): () => void {
     const list = this.handlers[type] as Array<(m: Extract<WorkerToMain, { type: K }>) => void>;
     list.push(cb);
     return () => {
@@ -81,10 +78,11 @@ export class SimClient {
     this.send({ type: 'names', edgeIds });
   }
   private recycle(frame: FrameMessage): void {
-    this.send(
-      { type: 'recycle', n: frame.n, outflow: frame.outflow, departed: frame.departed },
-      [frame.n.buffer, frame.outflow.buffer, frame.departed.buffer],
-    );
+    this.send({ type: 'recycle', n: frame.n, outflow: frame.outflow, departed: frame.departed }, [
+      frame.n.buffer,
+      frame.outflow.buffer,
+      frame.departed.buffer,
+    ]);
     // The split snapshot rides along only on the frames where the field was rebuilt, and it
     // has its own pool in the worker, so it goes back on its own message.
     if (frame.split) this.send({ type: 'recycleField', split: frame.split }, [frame.split.buffer]);

@@ -220,12 +220,12 @@ function splitmix32(a: number): number {
   // Copied from src/core/rng.ts rather than imported: §15 forbids src/render from importing
   // src/core, and test/boundaries.test.ts enforces it by reading the source text.
   // test/tracers.test.ts pins the two streams together so the copy cannot drift.
-  a = (a + 0x9e3779b9) | 0;
-  let t = a ^ (a >>> 16);
-  t = Math.imul(t, 0x21f0aaad);
-  t = t ^ (t >>> 15);
-  t = Math.imul(t, 0x735a2d97);
-  return (t = t ^ (t >>> 15)) >>> 0;
+  const x = (a + 0x9e3779b9) | 0;
+  let z = x ^ (x >>> 16);
+  z = Math.imul(z, 0x21f0aaad);
+  z ^= z >>> 15;
+  z = Math.imul(z, 0x735a2d97);
+  return (z ^ (z >>> 15)) >>> 0;
 }
 
 function nextRandom(f: TracerField, i: number): number {
@@ -264,10 +264,7 @@ export function cumulative(
 }
 
 /** Lon/lat degrees to metre offsets from `center`, matching buildNodeXY in the worker. */
-export function toMeterOffsets(
-  positions: Float64Array,
-  center: [lat: number, lon: number],
-): Float32Array {
+export function toMeterOffsets(positions: Float64Array, center: [lat: number, lon: number]): Float32Array {
   const out = new Float32Array(positions.length);
   const mPerLon = 111320 * Math.cos(center[0] * (Math.PI / 180));
   for (let k = 0; k < positions.length; k += 2) {
@@ -395,10 +392,10 @@ function markStuck(f: TracerField, slot: number, e: number): void {
 function edgeBounds(f: TracerField): void {
   const { startIndices, vertsM, edgeBbox } = f;
   for (let e = 0; e < f.E; e++) {
-    let x0 = Infinity;
-    let y0 = Infinity;
-    let x1 = -Infinity;
-    let y1 = -Infinity;
+    let x0 = Number.POSITIVE_INFINITY;
+    let y0 = Number.POSITIVE_INFINITY;
+    let x1 = Number.NEGATIVE_INFINITY;
+    let y1 = Number.NEGATIVE_INFINITY;
     for (let k = startIndices[e]; k < startIndices[e + 1]; k++) {
       const x = vertsM[k * 2];
       const y = vertsM[k * 2 + 1];
@@ -418,14 +415,7 @@ function edgeBounds(f: TracerField): void {
  * Writes the point `dist` metres along edge `e`, pushed `lateral` metres to one side of the
  * carriageway. Walks the polyline the same way writePositions does; only ever runs at setup.
  */
-function alongEdge(
-  f: TracerField,
-  e: number,
-  dist: number,
-  lateral: number,
-  out: Float32Array,
-  at: number,
-): void {
+function alongEdge(f: TracerField, e: number, dist: number, lateral: number, out: Float32Array, at: number): void {
   const { startIndices, cum, vertsM } = f;
   const a = startIndices[e];
   const b = startIndices[e + 1];
@@ -503,8 +493,7 @@ function fillYards(f: TracerField, demand0: Float32Array, seed: number): void {
       if (dist < 1) dist = 1;
       // Both kerbs, so a street reads as houses down each side rather than a single file.
       const side = key & 1 ? 1 : -1;
-      const lateral =
-        side * (YARD_LATERAL_MIN_M + (((key >>> 16) & 0xff) / 256) * YARD_LATERAL_SPAN_M);
+      const lateral = side * (YARD_LATERAL_MIN_M + (((key >>> 16) & 0xff) / 256) * YARD_LATERAL_SPAN_M);
       alongEdge(f, e, dist, lateral, yardPos, slot * 2);
     }
     f.yardEnd[v] = slot;
@@ -551,12 +540,7 @@ export function parkedSlotAt(f: TracerField, index: number): number {
   return -1;
 }
 
-export function setNetwork(
-  f: TracerField,
-  storage: Float32Array,
-  blocked: Uint8Array,
-  ttSec: Uint16Array,
-): void {
+export function setNetwork(f: TracerField, storage: Float32Array, blocked: Uint8Array, ttSec: Uint16Array): void {
   f.storage = storage;
   f.blocked = blocked;
   f.ttSec = ttSec;
@@ -632,10 +616,7 @@ function recordHop(f: TracerField, slot: number, v: number, e: number): void {
  * leave the graph alone and addRoad already forces a full reset (§9.3) -- so this is exact and
  * needs nothing from the field, the loads, or the order the frames happened to arrive in.
  */
-export function replayRoute(
-  f: TracerField,
-  slot: number,
-): { edges: Uint32Array; truncated: boolean } {
+export function replayRoute(f: TracerField, slot: number): { edges: Uint32Array; truncated: boolean } {
   const hops = f.dHops[slot];
   if (!f.routesEnabled || hops === 0) return { edges: new Uint32Array(0), truncated: false };
   const kept = hops > MAX_HOPS ? MAX_HOPS : hops;
@@ -686,10 +667,7 @@ export function onFrame(
     // the rest of the run. Dithered so a fractional debt is paid at the right rate across the
     // city, and flushed outright once the model has released the whole yard -- the dither's own
     // leftover would otherwise keep a car or two parked to the end.
-    const want =
-      depCum[v] >= demand0[v] - 1e-3
-        ? yardEnd[v] - yardBegin[v]
-        : Math.floor(depCum[v] + dither[v]);
+    const want = depCum[v] >= demand0[v] - 1e-3 ? yardEnd[v] - yardBegin[v] : Math.floor(depCum[v] + dither[v]);
     for (let have = yardNext[v] - yardBegin[v]; have < want; have++) {
       if (!depart(f, v, simT)) break;
     }
@@ -736,20 +714,7 @@ function depart(f: TracerField, v: number, simT: number): boolean {
  * standing tail is the thing worth seeing.
  */
 export function advance(f: TracerField, simT: number): void {
-  const {
-    moving,
-    dEdge,
-    dEnterT,
-    dAhead,
-    dParam,
-    servedCum,
-    invTt,
-    invStorage,
-    blocked,
-    n,
-    isExit,
-    edgeTo,
-  } = f;
+  const { moving, dEdge, dEnterT, dAhead, dParam, servedCum, invTt, invStorage, blocked, n, isExit, edgeTo } = f;
 
   // Backwards, so removeMoving's swap of the tail into the current index cannot skip a car.
   for (let k = f.movingCount - 1; k >= 0; k--) {
@@ -818,8 +783,7 @@ export type ViewBounds = { x0: number; y0: number; x1: number; y1: number };
  * came from so a pick can name the car.
  */
 export function writePositions(f: TracerField, bounds: ViewBounds | null): number {
-  const { moving, dEdge, dParam, dVtx, cum, edgeLen, vertsM, startIndices, pos, slotOf, edgeBbox } =
-    f;
+  const { moving, dEdge, dParam, dVtx, cum, edgeLen, vertsM, startIndices, pos, slotOf, edgeBbox } = f;
   let out = 0;
   for (let k = 0; k < f.movingCount; k++) {
     const i = moving[k];

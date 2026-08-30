@@ -1,0 +1,220 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.10/schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": {
+    "includes": [
+      "**",
+      "!dist",
+      "!tools/.venv",
+      "!data",
+      "!public/cities",
+      "!public/scenarios",
+      "!test/fixtures",
+      "!package-lock.json"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "jsxQuoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all",
+      "arrowParentheses": "always"
+    }
+  },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+
+  "linter": {
+    "enabled": true,
+    "domains": { "react": "all", "test": "all" },
+    "rules": {
+      // Every rule of every group, at error. What follows are the exceptions, and each one
+      // names the decision in CONTRACTS.md it would otherwise overrule.
+      "preset": "all",
+      "a11y": "error",
+      "complexity": {
+        // §15 fixes the module layout and the owner decided against splitting files before
+        // the deadline. A size threshold would report that decision as an error every run.
+        "noExcessiveLinesPerFunction": "off",
+        "noExcessiveCognitiveComplexity": "off",
+        // The tick and the node model take the state struct plus indices; §16.5 forbids
+        // allocating a wrapper object per call to please a parameter count.
+        "useMaxParams": "off"
+      },
+      "correctness": {
+        // A Qwik rule. preset "all" turns on the rules of every framework Biome knows;
+        // this project is React, and the rule fires on plain module-scope constants.
+        "useQwikValidLexicalScope": "off"
+      },
+      "performance": {
+        // Inline handlers are the React idiom, and §13 keeps re-renders off the frame path:
+        // only a 200 ms-throttled summary reaches the store (src/main/state.ts).
+        "noJsxPropsBind": "off",
+        // Another Solid rule -- it wants a <For> component. Wrong framework.
+        "useSolidForComponent": "off"
+      },
+      "security": "error",
+      "style": {
+        // §15 fixes the module layout; see the complexity group above.
+        "noExcessiveLinesPerFile": "off",
+        // A mesoscopic model is numbers: typed-array indices, the byte offsets of the §3
+        // binary format, unit conversions. The parameters that are model decisions already
+        // live in exactly one place, src/core/params.ts (§2).
+        "noMagicNumbers": "off",
+        // §1 mandates unit suffixes (lenM, capVehS, speedKmh) and the graph notation V/E/S/X
+        // of §5. The rule renames `const SRC = V` to `Src`, which is worse than either.
+        "useNamingConvention": "off",
+        // §16.5: the tick is written as single-line guards. Wrapping 420 of them in braces
+        // is a rewrite of the hot path to no measured end.
+        "useBlockStatements": "off",
+        "noContinue": "off",
+        "noIncrementDecrement": "off",
+        // The §3 format constants and the §10 mixers are read as whole words:
+        // 0x9e3779b9, not 0x9e_37_79_b9.
+        "useNumericSeparators": "off",
+        // §16.6: a module's public API is stated at the top of its file, deliberately.
+        "useExportsLast": "off",
+        "noTernary": "off",
+        // Every site it flags iterates a typed array (demandNodes, cutEdges, the exit set),
+        // and half of them run per frame or inside Dijkstra. for-of allocates an iterator
+        // per call, which §16.5 forbids in the tick.
+        "useForOf": "off",
+        // It wants `const [top] = this.heap` on a Uint32Array. Array destructuring goes
+        // through the iterator protocol and allocates, which §16.5 forbids in the tick and
+        // in the Dijkstra of §6.3.
+        "useDestructuring": "off",
+        "noNestedTernary": "off",
+        "noJsxLiterals": "off",
+        // styles.css is authored in hex and the palette is mirrored in src/render/palette.ts.
+        "noHexColors": "off",
+        // `arr.at(-1)` is typed `T | undefined` while `arr[arr.length - 1]` is `T`. Taking the
+        // fix costs nine `!` assertions across the preprocessor and the tests, which is a worse
+        // trade than the index it replaces.
+        "useAtIndex": "off",
+        // styles.css is grouped by component, not by specificity. Every pair it flags differs
+        // in specificity, so the cascade already picks the intended rule and reordering would
+        // only scatter the grouping.
+        "noDescendingSpecificity": "off",
+        // The protocol of §8 and the types of §5 are discriminated unions, which `interface`
+        // cannot express; a mixed codebase is worse than a consistent `type` one.
+        "useConsistentTypeDefinitions": { "level": "error", "options": { "style": "type" } }
+      },
+      "suspicious": {
+        // The edge flags of §3.2, the 4-bit route packing of §13.2 and the xorshift128+ of
+        // §10 are bitwise by construction.
+        "noBitwiseOperators": "off",
+        // A Solid rule: it wants `class` instead of `className`. Wrong framework.
+        "noReactSpecificProps": "off",
+        // Type-aware and wrong twice here. `Tags` is a Record and tsconfig does not set
+        // noUncheckedIndexedAccess, so `tags.highway ?? 'residential'` reads as redundant
+        // while being load-bearing; and React types `ref.current` as non-null, so dropping
+        // `if (!canvas) return` would be a real crash. Both "fixes" are bugs.
+        "noUnnecessaryConditions": "off"
+      }
+    }
+  },
+
+  "overrides": [
+    // A later override replaces an earlier one for the same rule, so each block below repeats
+    // every pattern that applies to it and the narrowest directory comes last.
+    {
+      // §15: tools/** is the offline pipeline and never ships in the bundle.
+      "includes": ["src/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [{ "group": ["**/tools/**"], "message": "§15: nothing under src may import tools." }]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      // §15: src/core is pure. It runs in node under vitest, so nothing that needs a DOM,
+      // a GPU or a React tree may reach it.
+      "includes": ["src/core/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  { "group": ["**/tools/**"], "message": "§15: nothing under src may import tools." },
+                  {
+                    "group": [
+                      "deck.gl",
+                      "@deck.gl/**",
+                      "maplibre-gl",
+                      "react",
+                      "react/**",
+                      "react-dom",
+                      "react-dom/**"
+                    ],
+                    "message": "§15: src/core is pure -- no DOM, no deck.gl, no React."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      // §15: src/render knows the frame format and nothing else. Keeping it off src/core is
+      // what lets the tracer state machine run headless in test/tracers.test.ts.
+      "includes": ["src/render/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  { "group": ["**/tools/**"], "message": "§15: nothing under src may import tools." },
+                  {
+                    "group": ["**/core/**"],
+                    "message": "§15: src/render must not import src/core -- it only knows the frame format."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      // Code that never ships in the bundle: the offline CLI of tools/** -- which runs under
+      // bare node, prints progress, and is exempt from the dependency whitelist by §16.3 --
+      // and the tests.
+      "includes": ["tools/**", "test/**", "vite.config.ts"],
+      "linter": {
+        "rules": {
+          // A helper that builds a fixture and asserts its preconditions is called from the
+          // it() blocks, which noMisplacedAssertion cannot see through.
+          "suspicious": { "noConsole": "off", "noMisplacedAssertion": "off" },
+          "correctness": { "noNodejsModules": "off", "noProcessGlobal": "off" },
+          // toMatch(/.../) and toThrow(/.../) run once. Hoisting the pattern out of the it()
+          // moves the assertion away from what it asserts.
+          "performance": { "useTopLevelRegex": "off" },
+          "style": {
+            "noDefaultExport": "off",
+            // `expect(x).not.toBeNull()` followed by `x!` is the assertion idiom; src/ has
+            // no non-null assertion at all and the rule stays on there.
+            "noNonNullAssertion": "off"
+          }
+        }
+      }
+    }
+  ]
+}

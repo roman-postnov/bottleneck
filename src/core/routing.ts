@@ -1,8 +1,8 @@
 // The routing field (CONTRACTS.md §6): reverse Dijkstra from the set of exits, turned into
 // split shares over the out-edges of every node.
 
-import { DEFAULTS } from './params.ts';
 import { IndexedMinHeap } from './heap.ts';
+import { DEFAULTS } from './params.ts';
 import type { City, Field, SimState } from './types.ts';
 
 const EPS = 1e-9;
@@ -67,12 +67,7 @@ export function freeFlowCost(city: City, out?: Float32Array): Float32Array {
  * needed to discharge the queue already standing at its exit, smoothed exponentially.
  * Smoothing is what keeps the informed share from oscillating between two routes (§2).
  */
-export function observedCost(
-  sim: SimState,
-  prev: Float32Array,
-  smoothing: number,
-  out?: Float32Array,
-): Float32Array {
+export function observedCost(sim: SimState, prev: Float32Array, smoothing: number, out?: Float32Array): Float32Array {
   const E = sim.city.E;
   const cost = out && out.length === E ? out : new Float32Array(E);
   for (let e = 0; e < E; e++) {
@@ -93,7 +88,7 @@ function dijkstra(
 ): void {
   const { V, inOff, inEdge, edgeFrom } = city;
 
-  cost.fill(Infinity);
+  cost.fill(Number.POSITIVE_INFINITY);
   heap.reset(cost);
   for (let i = 0; i < exits.length; i++) {
     const x = exits[i];
@@ -121,9 +116,9 @@ function dijkstra(
 
 /** Logit weights of §6.2 over the usable slots of one node, normalised to sum 1. */
 function logit(u: Float32Array, w: Float32Array, deg: number, theta: number): number {
-  let best = Infinity;
+  let best = Number.POSITIVE_INFINITY;
   for (let i = 0; i < deg; i++) if (u[i] < best) best = u[i];
-  if (best === Infinity) return 0;
+  if (best === Number.POSITIVE_INFINITY) return 0;
 
   let sum = 0;
   if (theta <= 0) {
@@ -137,7 +132,7 @@ function logit(u: Float32Array, w: Float32Array, deg: number, theta: number): nu
     }
   } else {
     for (let i = 0; i < deg; i++) {
-      w[i] = u[i] === Infinity ? 0 : Math.exp(-theta * (u[i] - best));
+      w[i] = u[i] === Number.POSITIVE_INFINITY ? 0 : Math.exp(-theta * (u[i] - best));
       sum += w[i];
     }
   }
@@ -233,9 +228,9 @@ export function buildField(
       // direction, and reroutes the observed cost rates as better -- 991 s against 1003 s at
       // node 837 -- are refused because they are 20 s longer at free flow.
       const cTo = descent[to];
-      const usable = !blocked[e] && cTo !== Infinity && cTo < cv;
-      uFree[i] = usable ? edgeCostFree[e] + cost[to] : Infinity;
-      if (useObs) uObs[i] = usable ? obsCost[e] + costObs[to] : Infinity;
+      const usable = !blocked[e] && cTo !== Number.POSITIVE_INFINITY && cTo < cv;
+      uFree[i] = usable ? edgeCostFree[e] + cost[to] : Number.POSITIVE_INFINITY;
+      if (useObs) uObs[i] = usable ? obsCost[e] + costObs[to] : Number.POSITIVE_INFINITY;
     }
 
     if (logit(uFree, wFree, deg, theta) === 0) continue;

@@ -71,9 +71,7 @@ export function maxFlow(
     // Exits absorb: their out-edges are left out of the network, or flow would leave town
     // and come back in, inflating the answer (REVIEW B2).
     if (city.isExit[city.edgeFrom[e]]) continue;
-    const c = blocked[e]
-      ? 0
-      : Math.round(capVehS(lanes[e], classOf(city.flags[e]), params.satFlowPerLane) * 3600);
+    const c = blocked[e] ? 0 : Math.round(capVehS(lanes[e], classOf(city.flags[e]), params.satFlowPerLane) * 3600);
     capVehH[e] = c;
     arcOf[e] = net.add(city.edgeFrom[e], city.edgeTo[e], c);
   }

@@ -2,7 +2,7 @@
 
 const LUT_SIZE = 256;
 
-type Stops = Array<[number, number, number, number]>;
+type Stops = [number, number, number, number][];
 
 /**
  * §13.2's ramp with both ends re-lit, and the reason is the same at both ends: loudness has to

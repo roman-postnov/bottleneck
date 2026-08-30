@@ -2,20 +2,20 @@
 // Written from the contract; where a check cannot hold literally, the deviation is stated
 // in the test name and argued in a comment rather than quietly relaxed.
 
-import { describe, it, expect } from 'vitest';
-import { createSim, tick, applyEdits, metrics, snapshot } from '../src/core/sim.ts';
-import { nodeTransfer } from '../src/core/nodeModel.ts';
-import { maxFlow } from '../src/core/maxflow.ts';
+import { describe, expect, it } from 'vitest';
 import { classOf, FLAG } from '../src/core/city.ts';
-import { capVehS, CLASS_CODE } from '../src/core/params.ts';
+import { maxFlow } from '../src/core/maxflow.ts';
+import { nodeTransfer } from '../src/core/nodeModel.ts';
+import { CLASS_CODE, capVehS } from '../src/core/params.ts';
 import { createRng } from '../src/core/rng.ts';
-import { loadFixture, massInSystem, params, publicCity, run, tinyCity } from './helpers.ts';
+import { applyEdits, createSim, metrics, snapshot, tick } from '../src/core/sim.ts';
 import type { SimState } from '../src/core/types.ts';
+import { loadFixture, massInSystem, params, publicCity, run, tinyCity } from './helpers.ts';
 
 const HOUR = 3600;
 
 const exitEdgesOf = (c: { E: number; flags: Uint8Array }): number[] =>
-  [...Array(c.E).keys()].filter((e) => c.flags[e] & FLAG.EXIT_EDGE);
+  [...new Array(c.E).keys()].filter((e) => c.flags[e] & FLAG.EXIT_EDGE);
 
 // -------------------------------------------------------------------- 1
 
@@ -310,10 +310,9 @@ describe('check 8: Mercer Island', () => {
     for (let e = 0; e < c.E; e++) {
       if (!c.isExit[c.edgeTo[e]]) continue;
       const cls = classOf(c.flags[e]);
-      expect(
-        cls <= CLASS_CODE.primary || cls === CLASS_CODE.link,
-        `${c.nameOf(e) || 'unnamed'} feeds an exit`,
-      ).toBe(true);
+      expect(cls <= CLASS_CODE.primary || cls === CLASS_CODE.link, `${c.nameOf(e) || 'unnamed'} feeds an exit`).toBe(
+        true,
+      );
     }
   });
 });
@@ -404,7 +403,7 @@ describe('check 12: independence from traversal order', () => {
     prepare(ascending);
     for (let v = 0; v < c.V; v++) nodeTransfer(ascending, v);
 
-    const order = [...Array(c.V).keys()];
+    const order = [...new Array(c.V).keys()];
     const rng = createRng(4242);
     for (let i = order.length - 1; i > 0; i--) {
       const j = Math.floor(rng.next() * (i + 1));
@@ -419,9 +418,7 @@ describe('check 12: independence from traversal order', () => {
       expect(Math.abs(shuffled.inflow[e] - ascending.inflow[e])).toBeLessThan(1e-5 * (scale + 1));
       expect(Math.abs(shuffled.moveOut[e] - ascending.moveOut[e])).toBeLessThan(1e-5 * (scale + 1));
     }
-    expect(Math.abs(shuffled.evacuated - ascending.evacuated)).toBeLessThan(
-      1e-5 * (ascending.evacuated + 1),
-    );
+    expect(Math.abs(shuffled.evacuated - ascending.evacuated)).toBeLessThan(1e-5 * (ascending.evacuated + 1));
   });
 });
 
@@ -458,20 +455,17 @@ describe('check 13: the ring buffer', () => {
 // -------------------------------------------------------------------- 14 and 15
 
 describe('checks 14 and 15: max-flow and the min cut', () => {
-  it.each(['grid20', 'island8', 'line10', 'single'])(
-    'on %s the cut capacity equals the flow exactly',
-    (name) => {
-      const c = loadFixture(name);
-      const p = params(name);
-      const r = maxFlow(c, p, new Uint8Array(c.E));
-      let sum = 0;
-      for (const e of r.cutEdges) {
-        sum += Math.round(capVehS(c.lanes[e], classOf(c.flags[e]), p.satFlowPerLane) * 3600);
-      }
-      expect(r.valueVehH).toBeGreaterThan(0);
-      expect(sum).toBe(r.valueVehH);
-    },
-  );
+  it.each(['grid20', 'island8', 'line10', 'single'])('on %s the cut capacity equals the flow exactly', (name) => {
+    const c = loadFixture(name);
+    const p = params(name);
+    const r = maxFlow(c, p, new Uint8Array(c.E));
+    let sum = 0;
+    for (const e of r.cutEdges) {
+      sum += Math.round(capVehS(c.lanes[e], classOf(c.flags[e]), p.satFlowPerLane) * 3600);
+    }
+    expect(r.valueVehH).toBeGreaterThan(0);
+    expect(sum).toBe(r.valueVehH);
+  });
 
   it('the cut is made of roads, never of source or sink arcs', () => {
     const c = loadFixture('island8');

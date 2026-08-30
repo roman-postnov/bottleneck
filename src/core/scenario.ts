@@ -5,6 +5,10 @@
 import { DEFAULTS } from './params.ts';
 import type { Edit, Params, Scenario } from './types.ts';
 
+const B64_PLUS = /\+/g;
+const B64_SLASH = /\//g;
+const B64_PAD = /[=]+$/;
+
 export const DEFAULT_SEED = 20261101;
 
 export function defaultScenario(city: string): Scenario {
@@ -47,8 +51,7 @@ function legacyRouting(
   if (!input) return input;
   const mode = (input as { mode?: unknown }).mode;
   if (mode === undefined || input.informed !== undefined) return input;
-  const { ...rest } = input;
-  delete (rest as { mode?: unknown }).mode;
+  const { mode: _legacyMode, ...rest } = input as { mode?: unknown } & typeof input;
   return { ...rest, informed: mode === 'reactive' ? 1 : 0 };
 }
 
@@ -109,7 +112,7 @@ async function pipeThrough(bytes: Uint8Array, stream: TransformStream): Promise<
 function toBase64Url(bytes: Uint8Array): string {
   let s = '';
   for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return btoa(s).replace(B64_PLUS, '-').replace(B64_SLASH, '_').replace(B64_PAD, '');
 }
 
 function fromBase64Url(text: string): Uint8Array {

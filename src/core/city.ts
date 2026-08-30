@@ -79,16 +79,13 @@ export function parseCity(buffer: ArrayBuffer, meta: CityMeta | Record<string, n
 
   const off = new Uint32Array(SECTION_SLOTS);
   for (let i = 0; i < SECTION_SLOTS; i++) off[i] = dv.getUint32(48 + i * 4, true);
-  const at = <T>(s: number, Type: TypedArrayCtor<T>, len: number): T =>
-    new Type(buffer, off[s], len);
+  const at = <T>(s: number, Type: TypedArrayCtor<T>, len: number): T => new Type(buffer, off[s], len);
 
   // Buildings are the one section a file may lack: the committed synthetic fixtures predate
   // it, and §3.1's reserve is additive precisely so an old file stays readable. Offset 0 is
   // the marker -- no section can start there, the header ends at 128.
   const hasBld = off[SECTION.BLD_OFF] !== 0;
-  const bldOff = hasBld
-    ? at(SECTION.BLD_OFF, Uint32Array, V + 1)
-    : new Uint32Array(V + 1);
+  const bldOff = hasBld ? at(SECTION.BLD_OFF, Uint32Array, V + 1) : new Uint32Array(V + 1);
   const B = bldOff[V];
   const bldPts = hasBld ? at(SECTION.BLD_PTS, Int16Array, B * 2) : new Int16Array(0);
 
@@ -137,19 +134,10 @@ export function parseCity(buffer: ArrayBuffer, meta: CityMeta | Record<string, n
   };
 }
 
-type Derived = Pick<
-  City,
-  'edgeFrom' | 'inOff' | 'inEdge' | 'isExit' | 'maxOutDeg' | 'maxInDeg'
->;
+type Derived = Pick<City, 'edgeFrom' | 'inOff' | 'inEdge' | 'isExit' | 'maxOutDeg' | 'maxInDeg'>;
 
 /** edgeFrom, incoming edges, isExit, degrees. One pass, no per-element objects. */
-function buildDerived(
-  V: number,
-  E: number,
-  csrOff: Uint32Array,
-  edgeTo: Uint32Array,
-  exitNode: Uint32Array,
-): Derived {
+function buildDerived(V: number, E: number, csrOff: Uint32Array, edgeTo: Uint32Array, exitNode: Uint32Array): Derived {
   const edgeFrom = new Uint32Array(E);
   let maxOutDeg = 0;
   for (let v = 0; v < V; v++) {
@@ -198,10 +186,10 @@ function buildNameIndex(nameBlob: Uint8Array): Pick<City, 'nameStarts' | 'nameOf
  * Deltas accumulate in quantised units, so the decoder lands exactly where the
  * encoder did, without drift.
  */
-export function edgePolyline(city: City, e: EdgeIdx): Array<[number, number]> {
+export function edgePolyline(city: City, e: EdgeIdx): [number, number][] {
   const from = city.edgeFrom[e];
   const to = city.edgeTo[e];
-  const pts: Array<[number, number]> = [[city.lat[from] / 1e7, city.lon[from] / 1e7]];
+  const pts: [number, number][] = [[city.lat[from] / 1e7, city.lon[from] / 1e7]];
   let lat = city.lat[from];
   let lon = city.lon[from];
   for (let k = city.geomOff[e]; k < city.geomOff[e + 1]; k++) {
@@ -214,9 +202,10 @@ export function edgePolyline(city: City, e: EdgeIdx): Array<[number, number]> {
 }
 
 /** Strongly connected components of G' -- exit out-edges suppressed (§3.3.8). */
-export function stronglyConnectedComponents(
-  city: Pick<City, 'V' | 'csrOff' | 'edgeTo' | 'isExit'>,
-): { comp: Int32Array; nComp: number } {
+export function stronglyConnectedComponents(city: Pick<City, 'V' | 'csrOff' | 'edgeTo' | 'isExit'>): {
+  comp: Int32Array;
+  nComp: number;
+} {
   const { V, csrOff, edgeTo, isExit } = city;
   const index = new Int32Array(V).fill(-1);
   const low = new Int32Array(V);
@@ -236,7 +225,9 @@ export function stronglyConnectedComponents(
     let top = 0;
     frameV[0] = s;
     frameE[0] = csrOff[s];
-    index[s] = low[s] = idx++;
+    index[s] = idx;
+    low[s] = idx;
+    idx++;
     stack[sp++] = s;
     onStack[s] = 1;
     while (top >= 0) {
@@ -244,7 +235,9 @@ export function stronglyConnectedComponents(
       if (frameE[top] < endOf(v)) {
         const w = edgeTo[frameE[top]++];
         if (index[w] === -1) {
-          index[w] = low[w] = idx++;
+          index[w] = idx;
+          low[w] = idx;
+          idx++;
           stack[sp++] = w;
           onStack[w] = 1;
           top++;
@@ -274,23 +267,8 @@ export function stronglyConnectedComponents(
 /** The invariants of §3.3. An empty array means the file is valid. */
 export function validateCity(city: City): string[] {
   const err: string[] = [];
-  const {
-    V,
-    E,
-    G,
-    csrOff,
-    edgeTo,
-    twin,
-    lenM,
-    lanes,
-    speedKmh,
-    geomOff,
-    srcNode,
-    srcPop,
-    srcNoCar,
-    exitNode,
-    isExit,
-  } = city;
+  const { V, E, G, csrOff, edgeTo, twin, lenM, lanes, speedKmh, geomOff, srcNode, srcPop, srcNoCar, exitNode, isExit } =
+    city;
 
   if (csrOff[0] !== 0 || csrOff[V] !== E) {
     err.push(`1: CSR_OFF[0]=${csrOff[0]}, CSR_OFF[V]=${csrOff[V]}, expected 0 and ${E}`);
@@ -384,9 +362,7 @@ export function validateCity(city: City): string[] {
     const C = comp[srcNode[0]];
     for (let i = 1; i < srcNode.length; i++) {
       if (comp[srcNode[i]] !== C) {
-        err.push(
-          `8: SRC ${srcNode[i]} outside the source component (comp=${comp[srcNode[i]]}, expected ${C})`,
-        );
+        err.push(`8: SRC ${srcNode[i]} outside the source component (comp=${comp[srcNode[i]]}, expected ${C})`);
         break;
       }
     }
@@ -416,10 +392,7 @@ export function validateCity(city: City): string[] {
 }
 
 /** Network load. The only I/O in core; the parsing itself lives in parseCity. */
-export async function loadCity(
-  url: string,
-  meta: CityMeta | Record<string, never> = {},
-): Promise<City> {
+export async function loadCity(url: string, meta: CityMeta | Record<string, never> = {}): Promise<City> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`city.bin: ${res.status} ${res.statusText} for ${url}`);
   return parseCity(await res.arrayBuffer(), meta);

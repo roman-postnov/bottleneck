@@ -2,11 +2,11 @@
 // Frames go straight from the worker to the renderer callback; only a throttled summary
 // reaches React (see state.ts).
 
-import { SimClient } from './simClient.ts';
-import { getState, setState, type PresetInfo } from './state.ts';
 import { decodeScenario, defaultScenario, encodeScenario, normalizeScenario } from '../core/scenario.ts';
 import type { CityMeta, Edit, Scenario } from '../core/types.ts';
 import type { FrameMessage, ReadyMessage, WorkerToMain } from '../worker/protocol.ts';
+import { SimClient } from './simClient.ts';
+import { getState, type PresetInfo, setState } from './state.ts';
 
 const CLOCK_INTERVAL_MS = 200;
 /** Acceleration is averaged over a second: at x1 a 200 ms window reads 0 or 5, never 1. */
@@ -15,10 +15,10 @@ const SPEED_WINDOW_MS = 1000;
 export type NetworkMessage = Extract<WorkerToMain, { type: 'network' }>;
 
 export type FrameSink = {
-  onReady(msg: ReadyMessage): void;
-  onFrame(msg: FrameMessage): void;
+  onReady: (msg: ReadyMessage) => void;
+  onFrame: (msg: FrameMessage) => void;
   /** An edit changed storage, blocked or ttSec under the running network (§9.3). */
-  onNetwork(msg: NetworkMessage): void;
+  onNetwork: (msg: NetworkMessage) => void;
 };
 
 let sink: FrameSink | null = null;
@@ -120,6 +120,11 @@ client.on('error', (msg) => {
   setState({ status: 'error', error: `${msg.where}: ${msg.message}` });
 });
 
+/** Every rejection the UI can start ends up here, and from here in the error banner. */
+export function reportError(e: unknown): void {
+  setState({ status: 'error', error: e instanceof Error ? e.message : String(e) });
+}
+
 export async function boot(): Promise<void> {
   setState({ status: 'loading' });
   try {
@@ -134,7 +139,7 @@ export async function boot(): Promise<void> {
     const packed = query.get('s');
     if (packed) {
       const scenario = await decodeScenario(packed);
-      await selectCity(scenario.city);
+      selectCity(scenario.city);
       updateScenario(() => scenario);
       return;
     }
@@ -146,9 +151,9 @@ export async function boot(): Promise<void> {
     }
 
     const first = query.get('city') ?? cities[0]?.id;
-    if (first) await selectCity(first);
+    if (first) selectCity(first);
   } catch (e) {
-    setState({ status: 'error', error: e instanceof Error ? e.message : String(e) });
+    reportError(e);
   }
 }
 
@@ -166,15 +171,23 @@ export async function selectPreset(id: string): Promise<void> {
   const r = await fetch(`scenarios/${id}.json`);
   if (!r.ok) throw new Error(`scenarios/${id}.json: ${r.status}`);
   const scenario = normalizeScenario((await r.json()) as Scenario);
-  await selectCity(scenario.city);
+  selectCity(scenario.city);
   updateScenario(() => scenario);
   setState({ presetId: id });
 }
 
-export async function selectCity(id: string): Promise<void> {
+export function selectCity(id: string): void {
   const meta = getState().cities.find((c) => c.id === id);
   if (!meta) return;
-  setState({ status: 'loading', cityId: id, presetId: null, probe: null, showCut: false, baselineT90: null, link: null });
+  setState({
+    status: 'loading',
+    cityId: id,
+    presetId: null,
+    probe: null,
+    showCut: false,
+    baselineT90: null,
+    link: null,
+  });
   lastReady = null;
   // Absolute: a module worker resolves a relative fetch against its own script URL,
   // not against the page, so `cities/x.bin` would land under /src/worker/.
@@ -235,8 +248,7 @@ export function setSpeed(x: number): void {
 export function applyEdit(edit: Edit): void {
   const s = getState();
   if (!s.scenario) return;
-  const stamped: Edit =
-    edit.op === 'addRoad' ? edit : { ...edit, atMin: Math.round(getState().clock.t / 60) };
+  const stamped: Edit = edit.op === 'addRoad' ? edit : { ...edit, atMin: Math.round(getState().clock.t / 60) };
   setState({
     scenario: { ...s.scenario, edits: [...s.scenario.edits, stamped] },
     metrics: null,

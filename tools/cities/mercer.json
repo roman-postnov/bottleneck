@@ -3,16 +3,8 @@
   "name": "Mercer Island, WA",
   "blurb": "25,720 residents on an island, the only road out — I-90 in both directions.",
   "pbf": "data/raw/washington-latest.osm.pbf",
-  "bbox": [
-    47.52,
-    -122.256,
-    47.6,
-    -122.201
-  ],
-  "center": [
-    47.5707,
-    -122.2221
-  ],
+  "bbox": [47.52, -122.256, 47.6, -122.201],
+  "center": [47.5707, -122.2221],
   "zoom": 13,
   "population": 25720,
   "populationSource": "U.S. Census Bureau, 2020 Decennial Census, Mercer Island city, WA",

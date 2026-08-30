@@ -1,6 +1,6 @@
 // The Dijkstra heap of §6.3: typed arrays, reusable, decrease-key.
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { IndexedMinHeap } from '../src/core/heap.ts';
 import { createRng } from '../src/core/rng.ts';
 
@@ -15,7 +15,7 @@ describe('IndexedMinHeap', () => {
     h.reset(key);
     for (let i = 0; i < n; i++) h.pushOrDecrease(i);
 
-    let prev = -Infinity;
+    let prev = Number.NEGATIVE_INFINITY;
     const out: number[] = [];
     while (h.size > 0) {
       const v = h.pop();

@@ -1,11 +1,10 @@
 // The car layers of CONTRACTS.md §13.2: one dot per vehicle, plus the route of the one being
 // followed. Layer factories only -- the state machine is in tracers.ts and stays deck.gl-free.
 
-import { COORDINATE_SYSTEM } from '@deck.gl/core';
 import { PathLayer, ScatterplotLayer } from '@deck.gl/layers';
+import type { GraphView } from './layers.ts';
 import type { Palette } from './palette.ts';
 import type { BinaryPoints, TracerField } from './tracers.ts';
-import type { GraphView } from './layers.ts';
 
 /**
  * Below this zoom a dot is smaller than a pixel and the layer reads as density; above it, as
@@ -47,7 +46,7 @@ function points(
     // million dots that is a second upload and a quarter-million conversions, and none of it
     // shows up in a timer we control. In metre offsets use64bitPositions() is false, the fp64
     // path disappears, the buffer halves, and Float32 still resolves 1.4 mm at 12 km out.
-    coordinateSystem: COORDINATE_SYSTEM.METER_OFFSETS,
+    coordinateSystem: 'meter-offsets',
     coordinateOrigin: origin,
     data,
     radiusUnits: 'meters',
@@ -113,12 +112,7 @@ export function parkedLayer(
 }
 
 /** Cars the network stranded -- §11's `stranded`, on the map for the first time. */
-export function stuckLayer(
-  f: TracerField,
-  palette: Palette,
-  origin: Origin,
-  revision: number,
-): ScatterplotLayer {
+export function stuckLayer(f: TracerField, palette: Palette, origin: Origin, revision: number): ScatterplotLayer {
   return points('stuck', f.stuckCount, f.stuckPos, origin, revision, {
     getFillColor: palette.stuck,
     getRadius: CAR_M * 1.6,
@@ -131,11 +125,11 @@ export function stuckLayer(
 }
 
 /** The route a followed car has taken, as lon/lat paths built from the edges it used. */
-export function trailLayer(paths: Array<Array<[number, number]>>, palette: Palette): PathLayer {
+export function trailLayer(paths: [number, number][][], palette: Palette): PathLayer {
   return new PathLayer({
     id: 'trail',
     data: paths,
-    getPath: (d: Array<[number, number]>) => d,
+    getPath: (d: [number, number][]) => d,
     getColor: palette.trail,
     getWidth: 16,
     widthUnits: 'meters',
@@ -157,7 +151,7 @@ export function followLayer(
 ): ScatterplotLayer {
   return new ScatterplotLayer({
     id: 'follow',
-    coordinateSystem: COORDINATE_SYSTEM.METER_OFFSETS,
+    coordinateSystem: 'meter-offsets',
     coordinateOrigin: origin,
     data: [position],
     getPosition: (d: [number, number]) => d,
@@ -182,11 +176,8 @@ export function followLayer(
  * concatenation cutPaths does for the min-cut. A route is contiguous by construction, so this
  * is one path; it is returned wrapped because PathLayer wants a list.
  */
-export function edgePaths(
-  view: GraphView,
-  edges: ArrayLike<number>,
-): Array<Array<[number, number]>> {
-  const path: Array<[number, number]> = [];
+export function edgePaths(view: GraphView, edges: ArrayLike<number>): [number, number][][] {
+  const path: [number, number][] = [];
   for (let i = 0; i < edges.length; i++) {
     const e = edges[i];
     for (let k = view.startIndices[e]; k < view.startIndices[e + 1]; k++) {

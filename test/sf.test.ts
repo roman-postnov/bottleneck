@@ -5,14 +5,14 @@
 // and max-flow, which is milliseconds; S5 needs a full run of 377 thousand vehicles and lives
 // in tools/validate-sf.ts behind `npm run validate:sf`.
 
-import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { createSim } from '../src/core/sim.ts';
+import { describe, expect, it } from 'vitest';
+import { FLAG } from '../src/core/city.ts';
 import { maxFlow } from '../src/core/maxflow.ts';
 import { normalizeScenario, resolveParams } from '../src/core/scenario.ts';
-import { FLAG } from '../src/core/city.ts';
-import { publicCity } from './helpers.ts';
+import { createSim } from '../src/core/sim.ts';
 import type { Scenario } from '../src/core/types.ts';
+import { publicCity } from './helpers.ts';
 
 const sf = publicCity('sf');
 

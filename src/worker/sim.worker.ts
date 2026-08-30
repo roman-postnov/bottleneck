@@ -2,14 +2,14 @@
 // only ever sees frames.
 
 import { parseCity } from '../core/city.ts';
-import { createSim, tick, applyEdits, metrics, updateFrameStats } from '../core/sim.ts';
 import { maxFlow } from '../core/maxflow.ts';
 import { resolveParams } from '../core/scenario.ts';
-import { buildEdgeGeometry, buildNodeXY, buildBuildingXY } from './geometry.ts';
+import { applyEdits, createSim, metrics, tick, updateFrameStats } from '../core/sim.ts';
 import type { City, Metrics, Scenario, SimState } from '../core/types.ts';
+import { buildBuildingXY, buildEdgeGeometry, buildNodeXY } from './geometry.ts';
 import type { WorkerScope, WorkerToMain } from './protocol.ts';
 
-const ctx = self as unknown as WorkerScope;
+const ctx = globalThis as unknown as WorkerScope;
 
 /** Compute slice per scheduling turn. Keeps the worker answering messages while it runs. */
 const SLICE_MS = 12;
@@ -30,7 +30,7 @@ let playing = false;
  * and the word "acceleration" agree.
  */
 let speedX = 60;
-let stopAt = Infinity;
+let stopAt = Number.POSITIVE_INFINITY;
 
 /**
  * One set per in-flight frame. Three arrays travel together now (§8): n, the per-edge outflow
@@ -238,11 +238,7 @@ function postNetwork(s: SimState): void {
   const storage = Float32Array.from(s.storage);
   const blocked = Uint8Array.from(s.blocked);
   const ttSec = Uint16Array.from(s.ttSec);
-  post({ type: 'network', storage, blocked, ttSec }, [
-    storage.buffer,
-    blocked.buffer,
-    ttSec.buffer,
-  ]);
+  post({ type: 'network', storage, blocked, ttSec }, [storage.buffer, blocked.buffer, ttSec.buffer]);
 }
 
 function emitCurve(): void {
@@ -267,16 +263,12 @@ function flushCurve(): void {
 }
 
 function finished(s: SimState): boolean {
-  return (
-    s.t >= stopAt ||
-    s.t >= s.params.horizonSec ||
-    (s.totalVeh > 0 && s.evacuated >= s.totalVeh * (1 - 1e-6))
-  );
+  return s.t >= stopAt || s.t >= s.params.horizonSec || (s.totalVeh > 0 && s.evacuated >= s.totalVeh * (1 - 1e-6));
 }
 
 function step(): void {
   const s = sim;
-  if (!s || !playing) return;
+  if (!(s && playing)) return;
 
   const now = performance.now();
   const dtSec = lastStepAt === 0 ? 1 / 60 : (now - lastStepAt) / 1000;
@@ -355,20 +347,18 @@ ctx.addEventListener('message', (ev) => {
 
       case 'configure': {
         playing = false;
-        stopAt = Infinity;
+        stopAt = Number.POSITIVE_INFINITY;
         if (!cityReady) {
           fail('configure', new Error('configure before init'));
           break;
         }
         const scenarioToRun = msg.scenario;
-        void cityReady
-          .then(() => configure(scenarioToRun))
-          .catch((e) => fail('configure', e));
+        cityReady.then(() => configure(scenarioToRun)).catch((e) => fail('configure', e));
         break;
       }
 
       case 'play':
-        stopAt = Infinity;
+        stopAt = Number.POSITIVE_INFINITY;
         resume();
         break;
 
@@ -412,22 +402,24 @@ ctx.addEventListener('message', (ev) => {
         // Deferred like `configure`: the names of a preset's edits are asked for in the same
         // breath as the scenario, and the city is still being fetched then.
         const ids = msg.edgeIds;
-        void cityReady?.then(() => {
-          const s = sim;
-          if (!s || !city) return;
-          const names: Record<number, string> = {};
-          for (const id of ids) {
-            const e = s.indexOfEdgeId.get(id);
-            if (e !== undefined) names[id] = city.nameOf(e);
-          }
-          post({ type: 'names', names });
-        });
+        cityReady
+          ?.then(() => {
+            const s = sim;
+            if (!(s && city)) return;
+            const names: Record<number, string> = {};
+            for (const id of ids) {
+              const e = s.indexOfEdgeId.get(id);
+              if (e !== undefined) names[id] = city.nameOf(e);
+            }
+            post({ type: 'names', names });
+          })
+          .catch((e) => fail('names', e));
         break;
       }
 
       case 'probe': {
         const s = sim;
-        if (!s || !city) break;
+        if (!(s && city)) break;
         const e = s.indexOfEdgeId.get(msg.edgeId);
         if (e === undefined) break;
         post({
@@ -445,6 +437,8 @@ ctx.addEventListener('message', (ev) => {
         });
         break;
       }
+      default:
+        throw new Error(`unknown message ${JSON.stringify(msg)}`);
     }
   } catch (e) {
     fail(msg.type, e);

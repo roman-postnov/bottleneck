@@ -6,46 +6,39 @@
 // SIMULATED time -- see simT below.
 
 import { useEffect, useRef } from 'react';
-import { initMap, BASEMAP, type MapHandle, type PickHit } from '../render/map.ts';
+import { attachRenderer, client } from '../main/app.ts';
+import { type FollowedCar, setState, useStore } from '../main/state.ts';
+import { carsLayer, edgePaths, followLayer, parkedLayer, stuckLayer, trailLayer } from '../render/carLayers.ts';
 import {
+  type CutPaths,
   createGraphView,
   cutLayer,
   cutPaths,
+  type GraphView,
   paint,
   roadLayer,
-  type CutPaths,
-  type GraphView,
 } from '../render/layers.ts';
+import { BASEMAP, initMap, type MapHandle, type PickHit } from '../render/map.ts';
+import { PALETTE, type Palette } from '../render/palette.ts';
 import {
+  ARRIVED,
   advance,
   carPosition,
   createTracers,
   cumulative,
   dotError,
+  MOVING,
   onFrame,
+  PARKED,
   parkedSlotAt,
   replayRoute,
-  toMeterOffsets,
+  STUCK,
   setNetwork,
+  type TracerField,
+  toMeterOffsets,
   writeParked,
   writePositions,
-  ARRIVED,
-  MOVING,
-  PARKED,
-  STUCK,
-  type TracerField,
 } from '../render/tracers.ts';
-import {
-  carsLayer,
-  edgePaths,
-  followLayer,
-  parkedLayer,
-  stuckLayer,
-  trailLayer,
-} from '../render/carLayers.ts';
-import { PALETTE, type Palette } from '../render/palette.ts';
-import { attachRenderer, client } from '../main/app.ts';
-import { setState, useStore, type FollowedCar } from '../main/state.ts';
 
 const PULSE_MS = 1400;
 /** Averaged over wall time, not over a frame count: at a low frame rate a 30-frame window
@@ -76,7 +69,7 @@ type Scene = {
   /** Wall clock of the previous rAF, for the simulated-time step. */
   lastRafMs: number;
   followed: number;
-  trail: Array<Array<[number, number]>>;
+  trail: [number, number][][];
   trailHops: number;
 };
 
@@ -171,8 +164,7 @@ export function MapView(): React.ReactElement {
       if (windowAt === 0) windowAt = now;
       if (now - windowAt >= PERF_WINDOW_MS) {
         windowAt = now;
-        const mean = (i: number): number =>
-          window_.reduce((a, c) => a + c[i], 0) / window_.length;
+        const mean = (i: number): number => window_.reduce((a, c) => a + c[i], 0) / window_.length;
         const cells = [mean(0), mean(1), mean(2), mean(3)];
         window_ = [];
         setState({

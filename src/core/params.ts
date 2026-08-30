@@ -33,23 +33,16 @@ export const HIGHWAY_CLASSES = [
 
 export type HighwayClassName = (typeof HIGHWAY_CLASSES)[number]['name'];
 
-export const CLASS_CODE = Object.fromEntries(
-  HIGHWAY_CLASSES.map((c, i) => [c.name, i]),
-) as Record<HighwayClassName, number>;
+export const CLASS_CODE = Object.fromEntries(HIGHWAY_CLASSES.map((c, i) => [c.name, i])) as Record<
+  HighwayClassName,
+  number
+>;
 
-export function capVehS(
-  lanes: number,
-  code: number,
-  satFlowPerLane: number = DEFAULTS.satFlowPerLane,
-): number {
+export function capVehS(lanes: number, code: number, satFlowPerLane: number = DEFAULTS.satFlowPerLane): number {
   return (lanes * satFlowPerLane * HIGHWAY_CLASSES[code].factor) / 3600;
 }
 
-export function storageVeh(
-  lenM: number,
-  lanes: number,
-  jamSpacingM: number = DEFAULTS.jamSpacingM,
-): number {
+export function storageVeh(lenM: number, lanes: number, jamSpacingM: number = DEFAULTS.jamSpacingM): number {
   return Math.max(1, Math.floor((lenM * lanes) / jamSpacingM));
 }
 

@@ -47,10 +47,11 @@ export function updateFrameStats(s: SimState): void {
   const find = (x: number): number => {
     let r = x;
     while (parent[r] !== r) r = parent[r];
-    while (parent[x] !== r) {
-      const nxt = parent[x];
-      parent[x] = r;
-      x = nxt;
+    let cur = x;
+    while (parent[cur] !== r) {
+      const nxt = parent[cur];
+      parent[cur] = r;
+      cur = nxt;
     }
     return r;
   };

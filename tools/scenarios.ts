@@ -9,11 +9,10 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { FLAG, parseCity } from '../src/core/city.ts';
-import { polylineLengthM } from './preprocess.ts';
-import { defaultScenario } from '../src/core/scenario.ts';
-import { resolveParams } from '../src/core/scenario.ts';
+import { defaultScenario, resolveParams } from '../src/core/scenario.ts';
 import { createSim } from '../src/core/sim.ts';
 import type { City, Edit, Scenario } from '../src/core/types.ts';
+import { polylineLengthM } from './preprocess.ts';
 
 function city(id: string): City {
   const b = readFileSync(`public/cities/${id}.bin`);
@@ -122,7 +121,7 @@ const index: Array<{ id: string; city: string; label: string }> = [];
 /** The label is written here rather than in the app: the file and the sentence that describes
  *  it are derived from the same place, so a renamed preset cannot keep an old description. */
 function write(name: string, label: string, s: Scenario): void {
-  writeFileSync(`public/scenarios/${name}.json`, JSON.stringify(s, null, 2) + '\n');
+  writeFileSync(`public/scenarios/${name}.json`, `${JSON.stringify(s, null, 2)}\n`);
   index.push({ id: name, city: s.city, label });
   console.log(`${name}: ${s.edits.length} edits`);
 }
@@ -173,5 +172,5 @@ write('sf-bridge-closed', 'San Francisco — Bay Bridge closed', {
 // earlier -- which is a scenario parameter, not an edit to the network.
 write('keys-baseline', 'Florida Keys — one road out, 180 km of it', defaultScenario('keys'));
 
-writeFileSync('public/scenarios/index.json', JSON.stringify(index, null, 2) + '\n');
+writeFileSync('public/scenarios/index.json', `${JSON.stringify(index, null, 2)}\n`);
 console.log(`index.json: ${index.length} presets`);

@@ -1,16 +1,16 @@
 // The simulation core (CONTRACTS.md §7). The public API here is exactly §7.2;
 // the node model, the departure curve and the statistics live in their own files.
 
-import { classOf } from './city.ts';
-import { capVehS, storageVeh } from './params.ts';
-import { buildField, observedCost } from './routing.ts';
+import { classOf, NO_TWIN } from './city.ts';
+import { recordTickStats } from './metrics.ts';
 import { mobilize, rayleighSigmaSec } from './mobilization.ts';
 import { nodeTransfer } from './nodeModel.ts';
-import { metrics, recordTickStats, updateFrameStats } from './metrics.ts';
-import { NO_TWIN } from './city.ts';
+import { capVehS, storageVeh } from './params.ts';
+import { buildField, observedCost } from './routing.ts';
 import type { City, Edit, FrameBuffers, HotEdit, Params, SimState } from './types.ts';
 
-export { metrics, updateFrameStats };
+// biome-ignore lint/performance/noBarrelFile: §16.6 -- the module's declared API is re-exported from its contract file, so the split stays invisible from outside
+export { metrics, updateFrameStats } from './metrics.ts';
 
 const OUTFLOW_WINDOW_SEC = 300;
 const MAX_TT_SEC = 65535; // ttSec is a Uint16 in SimState, and ringLen must equal it
@@ -49,8 +49,7 @@ export function createSim(city: City, params: Params, edits: Edit[] = []): SimSt
   }
   waiting.set(demand0);
 
-  const exits =
-    params.exits && params.exits.length > 0 ? Uint32Array.from(params.exits) : city.exitNode;
+  const exits = params.exits && params.exits.length > 0 ? Uint32Array.from(params.exits) : city.exitNode;
 
   // Two arrays, not one. The free-flow price is the potential the routing field descends and
   // it must survive the whole run: reactive reoptimisation smooths its own array towards the
@@ -298,6 +297,8 @@ export function applyEdits(s: SimState, edits: Edit[]): void {
         s.cap[twin] = 0;
         break;
       }
+      default:
+        throw new Error(`unknown edit op ${JSON.stringify(edit)}`);
     }
   }
   rebuildField(s);

@@ -27,9 +27,7 @@ const sf = publicCity('sf');
 
 function go(name: string, informed?: number): Metrics {
   const s0 = normalizeScenario(JSON.parse(readFileSync(`public/scenarios/${name}.json`, 'utf8')) as Scenario);
-  const p = resolveParams(
-    informed === undefined ? s0 : { ...s0, routing: { ...s0.routing, informed } },
-  );
+  const p = resolveParams(informed === undefined ? s0 : { ...s0, routing: { ...s0.routing, informed } });
   const s = createSim(sf, p, s0.edits);
   s.maxFlowVehH = maxFlow(sf, p, s.blocked, s.lanes).valueVehH;
   const t0 = Date.now();
@@ -61,13 +59,11 @@ const fail: string[] = [];
 if (base.t90Sec === null || base.t90Sec < 6 * 3600 || base.t90Sec > 24 * 3600) {
   fail.push(`S5: t90 ${hours(base.t90Sec)} outside 6-24 h`);
 }
-const t90 = (m: Metrics): number => m.t90Sec ?? Infinity;
+const t90 = (m: Metrics): number => m.t90Sec ?? Number.POSITIVE_INFINITY;
 if (base.t90Sec === null || t90(closed) <= t90(base)) {
   fail.push(`S6: closing the Bay Bridge did not raise t90 (${hours(base.t90Sec)} -> ${hours(closed.t90Sec)})`);
 }
 
-console.log(
-  `\nwhat knowing where the jam is buys: ${hours(base.t90Sec)} -> ${hours(seeing.t90Sec)}`,
-);
+console.log(`\nwhat knowing where the jam is buys: ${hours(base.t90Sec)} -> ${hours(seeing.t90Sec)}`);
 for (const f of fail) console.error(`MISS  ${f}`);
 process.exit(fail.length === 0 ? 0 : 1);

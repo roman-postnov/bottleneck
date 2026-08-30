@@ -32,14 +32,20 @@ export function EvacCurve(): React.ReactElement {
     for (let i = 0; i < curve.length; i += 2) tMax = Math.max(tMax, curve[i]);
     tMax = Math.ceil(tMax / 3600) * 3600;
 
-    const ink = theme === 'light'
-      ? { grid: '#dbe1e8', text: '#5c6a78', line: '#1668a8', mark: '#a86a00' }
-      : { grid: '#2a3038', text: '#7c8794', line: '#4ea8de', mark: '#e8c33a' };
+    const ink =
+      theme === 'light'
+        ? { grid: '#dbe1e8', text: '#5c6a78', line: '#1668a8', mark: '#a86a00' }
+        : { grid: '#2a3038', text: '#7c8794', line: '#4ea8de', mark: '#e8c33a' };
     g.strokeStyle = ink.grid;
     g.fillStyle = ink.text;
     g.font = '10px ui-monospace, monospace';
     g.lineWidth = 1;
-    for (const [pct, label] of [[0, '0%'], [0.5, '50%'], [0.9, '90%'], [1, '']] as const) {
+    for (const [pct, label] of [
+      [0, '0%'],
+      [0.5, '50%'],
+      [0.9, '90%'],
+      [1, ''],
+    ] as const) {
       const y = PAD.t + plotH * (1 - pct);
       g.beginPath();
       g.moveTo(PAD.l, y);
@@ -65,7 +71,7 @@ export function EvacCurve(): React.ReactElement {
       g.stroke();
     }
 
-    if (metrics?.t90Sec != null) {
+    if (metrics !== null && metrics.t90Sec !== null) {
       const x = PAD.l + (plotW * metrics.t90Sec) / tMax;
       g.strokeStyle = ink.mark;
       g.setLineDash([3, 3]);

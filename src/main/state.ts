@@ -20,10 +20,7 @@ export type PresetInfo = { id: string; city: string; label: string };
  * Omit-ed: `ready` now also carries the graph for the tracers (§13.2), and a dozen typed arrays
  * the length of E have no business sitting in React state.
  */
-export type ReadyInfo = Pick<
-  ReadyMessage,
-  'E' | 'V' | 'meta' | 'totalVeh' | 'maxFlowVehH' | 'cutEdges'
->;
+export type ReadyInfo = Pick<ReadyMessage, 'E' | 'V' | 'meta' | 'totalVeh' | 'maxFlowVehH' | 'cutEdges'>;
 
 /** Milliseconds per frame, split the way §13 splits the frame loop. */
 export type FrameCost = {

@@ -4,11 +4,14 @@
 // the maplibre layer stack -- couples us to a compatibility layer across two fast-moving
 // major versions, and buys only the ability to draw roads under map labels.
 
-import { Deck } from '@deck.gl/core';
 import type { Layer, MapViewState } from '@deck.gl/core';
+import { Deck } from '@deck.gl/core';
 import { Map as MapLibreMap, setWorkerUrl } from 'maplibre-gl';
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import 'maplibre-gl/dist/maplibre-gl.css';
+
+/** The basemap's own road layers, dimmed so the model's network reads on top (§13.2). */
+const ROAD_LAYER = /road|street|bridge|tunnel|highway|motorway|transit/i;
 
 setWorkerUrl(maplibreWorkerUrl);
 
@@ -23,11 +26,11 @@ export type PickHit = { layerId: string; index: number };
 export type MapHandle = {
   map: MapLibreMap;
   deck: Deck;
-  setLayers(layers: Layer[]): void;
-  flyTo(center: [number, number], zoom: number): void;
-  onPick(cb: (hit: PickHit | null) => void): void;
-  setBasemap(url: string | null): void;
-  destroy(): void;
+  setLayers: (layers: Layer[]) => void;
+  flyTo: (center: [number, number], zoom: number) => void;
+  onPick: (cb: (hit: PickHit | null) => void) => void;
+  setBasemap: (url: string | null) => void;
+  destroy: () => void;
 };
 
 export function initMap(
@@ -83,7 +86,7 @@ export function initMap(
   const dimBasemapRoads = (): void => {
     for (const layer of map.getStyle()?.layers ?? []) {
       if (layer.type !== 'line') continue;
-      if (!/road|street|bridge|tunnel|highway|motorway|transit/i.test(layer.id)) continue;
+      if (!ROAD_LAYER.test(layer.id)) continue;
       try {
         map.setPaintProperty(layer.id, 'line-opacity', 0.28);
       } catch {

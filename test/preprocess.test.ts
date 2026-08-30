@@ -2,8 +2,15 @@
 // few nodes: a .pbf takes ten seconds to read and tells you nothing about which of the twelve
 // steps got it wrong.
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { MAX_EDGE_LEN_M } from '../src/core/city.ts';
+import { CLASS_CODE } from '../src/core/params.ts';
+import type { LatLng } from '../src/core/types.ts';
+import type { Bbox, Extract, Graph, Tags } from '../tools/preprocess.ts';
 import {
+  assignBuildings,
+  assignPopulation,
+  BUILDING_RADIUS_M,
   buildArcs,
   classCode,
   clipWays,
@@ -12,23 +19,18 @@ import {
   lanes,
   polylineLengthM,
   pruneToLargestComponent,
-  assignPopulation,
-  assignBuildings,
-  BUILDING_RADIUS_M,
   splitLongArcs,
   vertexNodes,
 } from '../tools/preprocess.ts';
-import type { Bbox, Extract, Graph, Tags } from '../tools/preprocess.ts';
-import { CLASS_CODE } from '../src/core/params.ts';
-import { MAX_EDGE_LEN_M } from '../src/core/city.ts';
-import type { LatLng } from '../src/core/types.ts';
 
 const BBOX: Bbox = [0, 0, 1, 1];
 
 /** Nodes on a line of latitude, one per 0.01 degree, so lengths are ~1.1 km apart. */
 function coords(ids: number[], lon0 = 0.1): Map<number, LatLng> {
   const m = new Map<number, LatLng>();
-  ids.forEach((id, i) => m.set(id, [0.5, lon0 + i * 0.01]));
+  ids.forEach((id, i) => {
+    m.set(id, [0.5, lon0 + i * 0.01]);
+  });
   return m;
 }
 
@@ -279,10 +281,7 @@ describe('§4 step 8bis: buildings attach to the node that releases their cars',
       [3, [0.5, 1.5]],
     ]);
     const { runs, stubs } = clipWays(
-      [
-        way(10, [1, 2], { highway: 'residential' }),
-        way(11, [2, 3], { highway: 'primary' }),
-      ],
+      [way(10, [1, 2], { highway: 'residential' }), way(11, [2, 3], { highway: 'primary' })],
       c,
       BBOX,
     );

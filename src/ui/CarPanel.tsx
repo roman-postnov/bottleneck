@@ -39,13 +39,10 @@ export function CarPanel(): React.ReactElement | null {
           <>has not left yet</>
         ) : (
           <>
-            left {origin || 'an unnamed road'} at {elapsed(car.departedAt)}
-            {' · '}
+            left {origin || 'an unnamed road'} at {elapsed(car.departedAt)} ·{' '}
             {car.state === 'arrived' ? 'took ' : 'going '}
-            {elapsed(car.elapsed)}
-            {' · '}
-            {car.hops} road{car.hops === 1 ? '' : 's'}
-            {car.routeTruncated && ' (route clipped)'}
+            {elapsed(car.elapsed)} · {car.hops} road{car.hops === 1 ? '' : 's'}
+            {car.routeTruncated ? ' (route clipped)' : null}
           </>
         )}
       </div>

@@ -125,7 +125,7 @@ export type WorkerToMain =
  * The worker's own global, narrowed to what we use. Pulling in the full WebWorker lib
  * alongside DOM makes TypeScript fight itself over `self`, and this is three lines.
  */
-export interface WorkerScope {
-  postMessage(message: WorkerToMain, transfer: Transferable[]): void;
-  addEventListener(type: 'message', listener: (ev: MessageEvent<MainToWorker>) => void): void;
-}
+export type WorkerScope = {
+  postMessage: (message: WorkerToMain, transfer: Transferable[]) => void;
+  addEventListener: (type: 'message', listener: (ev: MessageEvent<MainToWorker>) => void) => void;
+};

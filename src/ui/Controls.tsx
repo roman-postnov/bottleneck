@@ -1,8 +1,10 @@
 // Transport controls and the parameters a run is actually argued over.
 
-import { pause, play, reset, selectCity, selectPreset, setSpeed, updateScenario } from '../main/app.ts';
-import { setState, useStore } from '../main/state.ts';
+import { useId } from 'react';
+
 import type { CityMeta } from '../core/types.ts';
+import { pause, play, reportError, reset, selectCity, selectPreset, setSpeed, updateScenario } from '../main/app.ts';
+import { setState, useStore } from '../main/state.ts';
 
 const SPEEDS = [1, 10, 60, 120, 300, 600];
 
@@ -16,6 +18,7 @@ function elapsed(sec: number): string {
 const isFixture = (c: CityMeta): boolean => (c.notes ?? '').startsWith('synth.ts');
 
 export function Controls(): React.ReactElement {
+  const speedId = useId();
   const cities = useStore((s) => s.cities);
   const cityId = useStore((s) => s.cityId);
   const presets = useStore((s) => s.presets);
@@ -39,7 +42,7 @@ export function Controls(): React.ReactElement {
       <select
         value={presetId ?? ''}
         onChange={(e) => {
-          if (e.target.value) void selectPreset(e.target.value);
+          if (e.target.value) selectPreset(e.target.value).catch(reportError);
         }}
       >
         <option value="">— pick a run —</option>
@@ -53,7 +56,7 @@ export function Controls(): React.ReactElement {
       <select
         value={cityId ?? ''}
         onChange={(e) => {
-          void selectCity(e.target.value);
+          selectCity(e.target.value);
         }}
       >
         {real.map((c) => (
@@ -73,10 +76,12 @@ export function Controls(): React.ReactElement {
       </select>
 
       <div className="row">
-        <button className="primary" onClick={running ? pause : play} disabled={status === 'loading'}>
+        <button type="button" className="primary" onClick={running ? pause : play} disabled={status === 'loading'}>
           {running ? 'Pause' : 'Play'}
         </button>
-        <button onClick={reset}>Reset</button>
+        <button type="button" onClick={reset}>
+          Reset
+        </button>
         <span className="clock">{elapsed(clock.t)}</span>
       </div>
 
@@ -86,17 +91,13 @@ export function Controls(): React.ReactElement {
       </div>
 
       <label className="check strong">
-        <input
-          type="checkbox"
-          checked={showCut}
-          onChange={(e) => setState({ showCut: e.target.checked })}
-        />
+        <input type="checkbox" checked={showCut} onChange={(e) => setState({ showCut: e.target.checked })} />
         show the bottleneck — every car has to pass here
       </label>
 
       <div className="row">
-        <label>Speed</label>
-        <select value={speedX} onChange={(e) => setSpeed(Number(e.target.value))}>
+        <label htmlFor={speedId}>Speed</label>
+        <select id={speedId} value={speedX} onChange={(e) => setSpeed(Number(e.target.value))}>
           {SPEEDS.map((x) => (
             <option key={x} value={x}>
               ×{x}
@@ -110,9 +111,7 @@ export function Controls(): React.ReactElement {
       {clock.actualX > 0 && clock.actualX < speedX * 0.9 && (
         // §1.1: the worker computes every tick and drops frames, so this is how fast the
         // picture moves, not how much of the simulation was skipped.
-        <p className="note muted">
-          Every tick is computed; frames are dropped to keep up. Nothing is being skipped.
-        </p>
+        <p className="note muted">Every tick is computed; frames are dropped to keep up. Nothing is being skipped.</p>
       )}
 
       {scenario && (
@@ -124,13 +123,11 @@ export function Controls(): React.ReactElement {
             max={100}
             step={1}
             suffix="% of drivers"
-            onChange={(v) =>
-              updateScenario((s) => ({ ...s, routing: { ...s.routing, informed: v / 100 } }))
-            }
+            onChange={(v) => updateScenario((s) => ({ ...s, routing: { ...s.routing, informed: v / 100 } }))}
           />
           <p className="note muted">
-            At 0% everyone drives the map and nobody knows where the jams are; at 100% everyone
-            reroutes around them. Both ends are wrong for a real town.
+            At 0% everyone drives the map and nobody knows where the jams are; at 100% everyone reroutes around them.
+            Both ends are wrong for a real town.
           </p>
 
           <Slider
@@ -140,9 +137,7 @@ export function Controls(): React.ReactElement {
             max={4}
             step={0.1}
             suffix=" ppl/car"
-            onChange={(v) =>
-              updateScenario((s) => ({ ...s, demand: { ...s.demand, occupancy: v } }))
-            }
+            onChange={(v) => updateScenario((s) => ({ ...s, demand: { ...s.demand, occupancy: v } }))}
           />
           <Slider
             label="Half depart"
@@ -151,9 +146,7 @@ export function Controls(): React.ReactElement {
             max={240}
             step={5}
             suffix=" min"
-            onChange={(v) =>
-              updateScenario((s) => ({ ...s, demand: { ...s.demand, mobilizationHalfMin: v } }))
-            }
+            onChange={(v) => updateScenario((s) => ({ ...s, demand: { ...s.demand, mobilizationHalfMin: v } }))}
           />
           <Slider
             label="Saturation"
@@ -162,17 +155,11 @@ export function Controls(): React.ReactElement {
             max={2200}
             step={50}
             suffix=" veh/h/lane"
-            onChange={(v) =>
-              updateScenario((s) => ({ ...s, supply: { ...s.supply, satFlowPerLane: v } }))
-            }
+            onChange={(v) => updateScenario((s) => ({ ...s, supply: { ...s.supply, satFlowPerLane: v } }))}
           />
 
           <label className="check">
-            <input
-              type="checkbox"
-              checked={particles}
-              onChange={(e) => setState({ particles: e.target.checked })}
-            />
+            <input type="checkbox" checked={particles} onChange={(e) => setState({ particles: e.target.checked })} />
             show traffic
           </label>
           {particles && (
@@ -200,10 +187,12 @@ function Slider(props: {
   suffix: string;
   onChange: (v: number) => void;
 }): React.ReactElement {
+  const id = useId();
   return (
     <div className="row slider">
-      <label>{props.label}</label>
+      <label htmlFor={id}>{props.label}</label>
       <input
+        id={id}
         type="range"
         min={props.min}
         max={props.max}

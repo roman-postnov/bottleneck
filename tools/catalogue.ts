@@ -22,5 +22,5 @@ export function upsertCatalogue(metas: CityMeta[], front = false): void {
     if (front) list.unshift(meta);
     else list.push(meta);
   }
-  writeFileSync(PATH, JSON.stringify(list, null, 2) + '\n');
+  writeFileSync(PATH, `${JSON.stringify(list, null, 2)}\n`);
 }

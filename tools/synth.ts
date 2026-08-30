@@ -6,12 +6,15 @@
 //
 // Geometry is derived from indices, never from an RNG -- fixtures must be deterministic.
 
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { CityBuilder, metresToDegLat, metresToDegLon } from './cityBuilder.ts';
-import { upsertCatalogue } from './catalogue.ts';
 import { CLASS_CODE } from '../src/core/params.ts';
 import type { CityMeta, LatLng } from '../src/core/types.ts';
+import { upsertCatalogue } from './catalogue.ts';
+import { CityBuilder, metresToDegLat, metresToDegLon } from './cityBuilder.ts';
+
+const DIRNAME = /^.*\//;
+const BIN_EXT = /\.bin$/;
 
 const ORIGIN: Record<string, LatLng> = {
   grid: [37.76, -122.44],
@@ -24,13 +27,7 @@ type Built = { b: CityBuilder; name: string; zones: string[] };
 type Opts = Record<string, number>;
 
 /** An exit is a separate node beyond the boundary, reached by one one-way arc. */
-function attachExit(
-  b: CityBuilder,
-  fromNode: number,
-  bearingLat: number,
-  bearingLon: number,
-  name: string,
-): number {
+function attachExit(b: CityBuilder, fromNode: number, bearingLat: number, bearingLon: number, name: string): number {
   const [la, lo] = b.nodes[fromNode];
   const x = b.node(la + bearingLat, lo + bearingLon);
   b.edge(fromNode, x, { cls: CLASS_CODE.primary, lanes: 2, name, exitEdge: true, oneway: true });
@@ -169,13 +166,10 @@ function emit(kind: string, opts: Opts, outPath: string): { buf: ArrayBuffer; me
   const lats = b.nodes.map((p) => p[0]);
   const lons = b.nodes.map((p) => p[1]);
   const meta: CityMeta = {
-    id: outPath.replace(/^.*\//, '').replace(/\.bin$/, ''),
+    id: outPath.replace(DIRNAME, '').replace(BIN_EXT, ''),
     name,
     blurb: `Synthetic fixture (${kind}). Not real geography.`,
-    center: [
-      (Math.min(...lats) + Math.max(...lats)) / 2,
-      (Math.min(...lons) + Math.max(...lons)) / 2,
-    ],
+    center: [(Math.min(...lats) + Math.max(...lats)) / 2, (Math.min(...lons) + Math.max(...lons)) / 2],
     zoom: 13,
     bytes: buf.byteLength,
     nodes: b.nodes.length,
@@ -188,11 +182,11 @@ function emit(kind: string, opts: Opts, outPath: string): { buf: ArrayBuffer; me
     smallCity: true,
     notes: `synth.ts --kind ${kind} ${JSON.stringify(opts)}`,
   };
-  writeFileSync(outPath.replace(/\.bin$/, '.json'), JSON.stringify(meta, null, 2) + '\n');
+  writeFileSync(outPath.replace(BIN_EXT, '.json'), `${JSON.stringify(meta, null, 2)}\n`);
   return { buf, meta };
 }
 
-const FIXTURES: Array<[string, Opts, string]> = [
+const FIXTURES: [string, Opts, string][] = [
   ['grid', { n: 20, pop: 20000, exits: 2 }, 'test/fixtures/grid20.bin'],
   ['line', { n: 10, pop: 5000 }, 'test/fixtures/line10.bin'],
   ['single', { lanes: 2, pop: 1e6 }, 'test/fixtures/single.bin'],
@@ -228,11 +222,7 @@ if (args.all) {
   if (!KINDS[kind as string]) {
     throw new Error(`unknown --kind ${kind}; available: ${Object.keys(KINDS).join(', ')}`);
   }
-  const { meta } = emit(
-    kind as string,
-    rest as Opts,
-    typeof out === 'string' ? out : `test/fixtures/${kind}.bin`,
-  );
+  const { meta } = emit(kind as string, rest as Opts, typeof out === 'string' ? out : `test/fixtures/${kind}.bin`);
   console.log(`${typeof out === 'string' ? out : kind}: V=${meta.nodes} E=${meta.edges} ${meta.bytes} B`);
 } else {
   console.log(`Usage:

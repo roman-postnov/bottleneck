@@ -1,8 +1,8 @@
 // The binary PathLayer of CONTRACTS.md §13.1.
 // The renderer knows vertices and a frame, never a graph (§15).
 
-import { PathLayer } from '@deck.gl/layers';
 import { PathStyleExtension } from '@deck.gl/extensions';
+import { PathLayer } from '@deck.gl/layers';
 import { LUT_SIZE, type Palette } from './palette.ts';
 
 /**
@@ -48,11 +48,7 @@ export type GraphView = {
   };
 };
 
-export function createGraphView(
-  E: number,
-  positions: Float64Array,
-  startIndices: Uint32Array,
-): GraphView {
+export function createGraphView(E: number, positions: Float64Array, startIndices: Uint32Array): GraphView {
   const vertexCount = startIndices[E];
   const colors = new Uint8Array(vertexCount * 3);
   // Per VERTEX, not per path -- same rule as the colours (§13.1). Sized [E] this silently
@@ -81,12 +77,7 @@ export function createGraphView(
 }
 
 /** Writes into the existing colour and width buffers; the data object is never recreated. */
-export function paint(
-  view: GraphView,
-  n: Float32Array,
-  storage: Float32Array,
-  palette: Palette,
-): void {
+export function paint(view: GraphView, n: Float32Array, storage: Float32Array, palette: Palette): void {
   const { startIndices, colors, widths, E } = view;
   const lut = palette.load;
   for (let e = 0; e < E; e++) {
@@ -127,14 +118,14 @@ export function roadLayer(view: GraphView): PathLayer {
   });
 }
 
-export type CutPaths = Array<Array<[number, number]>>;
+export type CutPaths = [number, number][][];
 
 /** The cut is a handful of edges, so it gets plain paths rather than a second binary buffer. */
 export function cutPaths(view: GraphView, cutEdges: Uint32Array): CutPaths {
   const out: CutPaths = [];
   for (let i = 0; i < cutEdges.length; i++) {
     const e = cutEdges[i];
-    const path: Array<[number, number]> = [];
+    const path: [number, number][] = [];
     for (let k = view.startIndices[e]; k < view.startIndices[e + 1]; k++) {
       path.push([view.positions[k * 2], view.positions[k * 2 + 1]]);
     }
@@ -152,7 +143,7 @@ export function cutLayer(paths: CutPaths, palette: Palette, pulse: number): Path
   return new PathLayer({
     id: 'cut',
     data: paths,
-    getPath: (d: Array<[number, number]>) => d,
+    getPath: (d: [number, number][]) => d,
     getColor: palette.cut,
     // Far wider than a road: the cut is a handful of short exit edges, and at city zoom the
     // honest width of four forty-metre stubs is four specks nobody sees.

@@ -3,15 +3,15 @@
 // drift on the day the format is first amended after the freeze.
 
 import {
-  MAGIC,
-  FORMAT_VERSION,
-  HEADER_BYTES,
-  SECTION_SLOTS,
-  SECTION,
   FLAG,
-  NO_TWIN,
+  FORMAT_VERSION,
   GEOM_SCALE,
+  HEADER_BYTES,
+  MAGIC,
   MAX_EDGE_LEN_M,
+  NO_TWIN,
+  SECTION,
+  SECTION_SLOTS,
 } from '../src/core/city.ts';
 import { CLASS_CODE, HIGHWAY_CLASSES } from '../src/core/params.ts';
 import type { LatLng } from '../src/core/types.ts';
@@ -24,9 +24,7 @@ const D2R = Math.PI / 180;
 export function haversineM(a: LatLng, b: LatLng): number {
   const dLat = (b[0] - a[0]) * D2R;
   const dLon = (b[1] - a[1]) * D2R;
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(a[0] * D2R) * Math.cos(b[0] * D2R) * Math.sin(dLon / 2) ** 2;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * D2R) * Math.cos(b[0] * D2R) * Math.sin(dLon / 2) ** 2;
   return 2 * EARTH_R * Math.asin(Math.sqrt(h));
 }
 
@@ -90,10 +88,10 @@ export class CityBuilder {
       lanes: o.lanes ?? d.lanes,
       speedKmh: o.speedKmh ?? d.speedKmh,
       name: o.name ?? '',
-      bridge: !!o.bridge,
-      tunnel: !!o.tunnel,
-      oneway: !!o.oneway,
-      exitEdge: !!o.exitEdge,
+      bridge: Boolean(o.bridge),
+      tunnel: Boolean(o.tunnel),
+      oneway: Boolean(o.oneway),
+      exitEdge: Boolean(o.exitEdge),
       geom: o.geom ?? [],
       twinTmp: -1,
     });
@@ -133,9 +131,7 @@ export class CityBuilder {
     const E = this.edges.length;
 
     // CSR requires edges grouped by their tail node.
-    const order = [...this.edges.keys()].sort(
-      (x, y) => this.edges[x].from - this.edges[y].from || x - y,
-    );
+    const order = [...this.edges.keys()].sort((x, y) => this.edges[x].from - this.edges[y].from || x - y);
     const newIdx = new Int32Array(E);
     order.forEach((old, i) => {
       newIdx[old] = i;
@@ -232,15 +228,15 @@ export class CityBuilder {
     const exitNode = Uint32Array.from(this.exitNodes);
     const X = exitNode.length;
 
-    const blob = new TextEncoder().encode(this.names.join('\0') + '\0');
+    const blob = new TextEncoder().encode(`${this.names.join('\0')}\0`);
     const NS = blob.length;
 
     const latI = new Int32Array(V);
     const lonI = new Int32Array(V);
-    let minLat = Infinity;
-    let minLon = Infinity;
-    let maxLat = -Infinity;
-    let maxLon = -Infinity;
+    let minLat = Number.POSITIVE_INFINITY;
+    let minLon = Number.POSITIVE_INFINITY;
+    let maxLat = Number.NEGATIVE_INFINITY;
+    let maxLon = Number.NEGATIVE_INFINITY;
     this.nodes.forEach(([la, lo], i) => {
       latI[i] = Math.round(la * 1e7);
       lonI[i] = Math.round(lo * 1e7);

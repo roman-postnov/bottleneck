@@ -4,9 +4,9 @@
 // the link in "copy link" reproduces the run that was on screen rather than one where the
 // road was shut from the start.
 
-import { applyEdit, copyLink, removeEdit } from '../main/app.ts';
-import { useStore } from '../main/state.ts';
 import type { Edit } from '../core/types.ts';
+import { applyEdit, copyLink, removeEdit, reportError } from '../main/app.ts';
+import { useStore } from '../main/state.ts';
 
 const NO_TWIN = 0xffffffff;
 
@@ -70,17 +70,19 @@ export function Interventions(): React.ReactElement | null {
             <span className="muted">
               {' '}
               · {probe.lanes} lane{probe.lanes === 1 ? '' : 's'}
-              {probe.blocked && ' · closed'}
+              {probe.blocked ? ' · closed' : null}
             </span>
           </div>
           <div className="row">
             <button
+              type="button"
               disabled={probe.blocked}
               onClick={() => applyEdit({ op: 'close', edgeId: probe.edgeId })}
             >
               Close
             </button>
             <button
+              type="button"
               disabled={probe.twin === NO_TWIN}
               // §9.3 ignores a contraflow with no twin, so the button says so instead of
               // pretending to work. A divided highway lands here: its two carriageways are
@@ -91,6 +93,7 @@ export function Interventions(): React.ReactElement | null {
               Contraflow
             </button>
             <button
+              type="button"
               onClick={() => applyEdit({ op: 'lanes', edgeId: probe.edgeId, lanes: probe.lanes + 1 })}
             >
               +1 lane
@@ -105,6 +108,7 @@ export function Interventions(): React.ReactElement | null {
             <li key={g.from}>
               <span>{g.text}</span>
               <button
+                type="button"
                 className="drop"
                 title="removing an edit rebuilds the network and restarts the run"
                 onClick={() => removeEdit(g.from, g.to)}
@@ -117,7 +121,9 @@ export function Interventions(): React.ReactElement | null {
       )}
 
       <div className="row">
-        <button onClick={() => void copyLink()}>Copy link</button>
+        <button type="button" onClick={() => copyLink().catch(reportError)}>
+          Copy link
+        </button>
         {link && <span className="muted">copied</span>}
       </div>
     </div>

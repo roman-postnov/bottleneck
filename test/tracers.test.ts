@@ -3,32 +3,32 @@
 //
 // src/render/tracers.ts imports no deck.gl on purpose, which is what lets all of this run here.
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { splitmix32 } from '../src/core/rng.ts';
 import {
-  ARRIVED,
-  MOVING,
-  PARKED,
-  ROUTE_MAX_HOPS,
-  STUCK,
   _splitmix32,
+  ARRIVED,
   advance,
   createTracers,
   cumulative,
   dotError,
+  MOVING,
   onFrame,
+  PARKED,
+  ROUTE_MAX_HOPS,
   replayRoute,
-  writeParked,
-  writePositions,
+  STUCK,
   type TracerField,
   type TracerInit,
+  writeParked,
+  writePositions,
 } from '../src/render/tracers.ts';
 
 /** The CSR pair the ready message carries. An empty list is a city whose file predates §3.2's
  *  building section, which is every committed fixture. */
 function buildings(
   V: number,
-  list: Array<[node: number, x: number, y: number]>,
+  list: [node: number, x: number, y: number][],
 ): { bldOff: Uint32Array; bldXY: Float32Array } {
   const sorted = [...list].sort((a, b) => a[0] - b[0]);
   const bldOff = new Uint32Array(V + 1);
@@ -50,7 +50,7 @@ const SPACING_M = 1000;
 function lineGraph(
   N: number,
   demand: number,
-  opts: { ttSec?: number; storage?: number; bld?: Array<[node: number, x: number, y: number]> } = {},
+  opts: { ttSec?: number; storage?: number; bld?: [node: number, x: number, y: number][] } = {},
 ) {
   const V = N + 1;
   const E = N;
@@ -180,7 +180,7 @@ describe('yards: one dot per vehicle, before anyone moves', () => {
   });
 
   it('parked cars stand at the buildings of their node when the city has them', () => {
-    const houses: Array<[number, number, number]> = [
+    const houses: [number, number, number][] = [
       [0, 40, 60],
       [0, 90, -70],
       [0, 300, 20],
@@ -227,7 +227,7 @@ describe('yards: one dot per vehicle, before anyone moves', () => {
   });
 
   it('the same city places its cars in the same places twice', () => {
-    const bld: Array<[number, number, number]> = [
+    const bld: [number, number, number][] = [
       [0, 15, 5],
       [0, 80, -30],
     ];
@@ -475,7 +475,7 @@ describe('routes: the recorded decisions replay to the edges actually taken', ()
       ttSec: new Uint16Array(E).fill(TT),
       split: Float32Array.from([1, 0.5, 0.5]),
       demand0: Float32Array.from([200, 0, 0, 0]),
-    ...buildings(V, []),
+      ...buildings(V, []),
       demandNodes: Uint32Array.from([0]),
       nodeXY: new Float32Array(V * 2),
       maxOutDeg: 2,
@@ -568,13 +568,7 @@ describe('positions', () => {
     frame(f, 0, { departed });
     advance(f, 25); // everyone is on edge 2, which spans x in [2000, 3000]
     expect(writePositions(f, null)).toBe(8);
-    expect(
-      writePositions(f, { x0: 1900, y0: -100, x1: 3100, y1: 100 }),
-      'bounds over edge 2',
-    ).toBe(8);
-    expect(
-      writePositions(f, { x0: -100, y0: -100, x1: SPACING_M, y1: 100 }),
-      'bounds over edge 0 only',
-    ).toBe(0);
+    expect(writePositions(f, { x0: 1900, y0: -100, x1: 3100, y1: 100 }), 'bounds over edge 2').toBe(8);
+    expect(writePositions(f, { x0: -100, y0: -100, x1: SPACING_M, y1: 100 }), 'bounds over edge 0 only').toBe(0);
   });
 });

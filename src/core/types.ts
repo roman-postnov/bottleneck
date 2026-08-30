@@ -95,7 +95,7 @@ export type City = {
   maxOutDeg: number;
   maxInDeg: number;
 
-  nameOf(e: EdgeIdx): string;
+  nameOf: (e: EdgeIdx) => string;
 };
 
 /** The routing field (§6.1): split shares per out-edge, seconds to safety per node. */
@@ -283,7 +283,7 @@ export type Scenario = {
 
   hazard?: {
     checkSec: number;
-    polygons: Array<{ atMin: number; ring: Array<[number, number]> }>;
+    polygons: Array<{ atMin: number; ring: [number, number][] }>;
   };
 };
 

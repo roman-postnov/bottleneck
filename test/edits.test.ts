@@ -1,18 +1,18 @@
 // Interventions, CONTRACTS.md §9.1 and §9.3: hot application, and the schedule that makes a
 // closure made mid-run reproducible from the permalink.
 
-import { describe, it, expect } from 'vitest';
-import { createSim, metrics, snapshot } from '../src/core/sim.ts';
-import { maxFlow } from '../src/core/maxflow.ts';
-import { loadFixture, params, run, scenario } from './helpers.ts';
-import { resolveParams } from '../src/core/scenario.ts';
+import { describe, expect, it } from 'vitest';
 import { FLAG } from '../src/core/city.ts';
+import { maxFlow } from '../src/core/maxflow.ts';
+import { resolveParams } from '../src/core/scenario.ts';
+import { createSim, metrics, snapshot } from '../src/core/sim.ts';
 import type { Edit } from '../src/core/types.ts';
+import { loadFixture, params, run, scenario } from './helpers.ts';
 
 const HOUR = 3600;
 
 const exitEdgesOf = (c: { E: number; flags: Uint8Array }): number[] =>
-  [...Array(c.E).keys()].filter((e) => c.flags[e] & FLAG.EXIT_EDGE);
+  [...new Array(c.E).keys()].filter((e) => c.flags[e] & FLAG.EXIT_EDGE);
 
 function sim(city: string, edits: Edit[]) {
   const c = loadFixture(city);

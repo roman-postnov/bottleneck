@@ -1,15 +1,23 @@
 // Tests for the city.bin format and loader. Written from CONTRACTS.md §3 and §5.
 
-import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
 import {
-  parseCity, validateCity, edgePolyline, stronglyConnectedComponents,
-  classOf, NO_TWIN, FLAG, MAX_EDGE_LEN_M, FORMAT_VERSION, GEOM_SCALE,
+  classOf,
+  edgePolyline,
+  FLAG,
+  FORMAT_VERSION,
+  GEOM_SCALE,
+  MAX_EDGE_LEN_M,
+  NO_TWIN,
+  parseCity,
+  stronglyConnectedComponents,
+  validateCity,
 } from '../src/core/city.ts';
-import { capVehS, ttSec, storageVeh, CLASS_CODE, HIGHWAY_CLASSES } from '../src/core/params.ts';
+import { CLASS_CODE, capVehS, HIGHWAY_CLASSES, storageVeh, ttSec } from '../src/core/params.ts';
 import type { LatLng } from '../src/core/types.ts';
-import { publicCity } from './helpers.ts';
 import { CityBuilder } from '../tools/cityBuilder.ts';
+import { publicCity } from './helpers.ts';
 
 const FIXTURES = ['grid20', 'line10', 'single', 'island8'];
 
@@ -27,19 +35,24 @@ function must(i: number | undefined, what: string): number {
 
 /** Perpendicular offset of point p from segment a-b, in metres (local planar projection). */
 function offsetFromLineM(a: LatLng, b: LatLng, p: LatLng): number {
-  const kLat = 111320, kLon = 111320 * Math.cos(a[0] * Math.PI / 180);
-  const ax = 0, ay = 0;
-  const bx = (b[1] - a[1]) * kLon, by = (b[0] - a[0]) * kLat;
-  const px = (p[1] - a[1]) * kLon, py = (p[0] - a[0]) * kLat;
+  const kLat = 111320;
+  const kLon = 111320 * Math.cos((a[0] * Math.PI) / 180);
+  const ax = 0;
+  const ay = 0;
+  const bx = (b[1] - a[1]) * kLon;
+  const by = (b[0] - a[0]) * kLat;
+  const px = (p[1] - a[1]) * kLon;
+  const py = (p[0] - a[0]) * kLat;
   const len = Math.hypot(bx - ax, by - ay);
   return Math.abs((bx - ax) * (ay - py) - (ax - px) * (by - ay)) / len;
 }
 
-const EARTH_R = 6371008.8, D2R = Math.PI / 180;
+const EARTH_R = 6371008.8;
+const D2R = Math.PI / 180;
 function haversineM(a: LatLng, b: LatLng): number {
-  const dLat = (b[0] - a[0]) * D2R, dLon = (b[1] - a[1]) * D2R;
-  const h = Math.sin(dLat / 2) ** 2
-    + Math.cos(a[0] * D2R) * Math.cos(b[0] * D2R) * Math.sin(dLon / 2) ** 2;
+  const dLat = (b[0] - a[0]) * D2R;
+  const dLon = (b[1] - a[1]) * D2R;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * D2R) * Math.cos(b[0] * D2R) * Math.sin(dLon / 2) ** 2;
   return 2 * EARTH_R * Math.asin(Math.sqrt(h));
 }
 
@@ -166,7 +179,7 @@ describe('geometry', () => {
   it('a bent edge is longer than the straight line between its nodes', () => {
     const c = load('grid20');
     const bent = must(
-      [...Array(c.E).keys()].find((e) => c.geomOff[e + 1] > c.geomOff[e]),
+      [...new Array(c.E).keys()].find((e) => c.geomOff[e + 1] > c.geomOff[e]),
       'bent edge',
     );
     const straight = haversineM(
@@ -181,7 +194,7 @@ describe('geometry', () => {
   // expectation from the very constant it is checking, and swapping the scale goes unnoticed.
   it('the bend measures 15 metres -- delta scale pinned in physical units', () => {
     const c = load('grid20');
-    const bent = [...Array(c.E).keys()].filter((i) => c.geomOff[i + 1] - c.geomOff[i] === 1);
+    const bent = [...new Array(c.E).keys()].filter((i) => c.geomOff[i + 1] - c.geomOff[i] === 1);
     expect(bent.length).toBeGreaterThan(0);
     for (const e of bent.slice(0, 50)) {
       const [a, mid, b] = edgePolyline(c, e);
@@ -192,7 +205,10 @@ describe('geometry', () => {
 
   it('deltas decode in units of 1e-6 degrees', () => {
     const c = load('grid20');
-    const e = must([...Array(c.E).keys()].find((i) => c.geomOff[i + 1] > c.geomOff[i]), 'bent edge');
+    const e = must(
+      [...new Array(c.E).keys()].find((i) => c.geomOff[i + 1] > c.geomOff[i]),
+      'bent edge',
+    );
     const k = c.geomOff[e];
     const expected = c.lat[c.edgeFrom[e]] + c.geomPts[k * 2] * GEOM_SCALE;
     expect(Math.round(edgePolyline(c, e)[1][0] * 1e7)).toBe(expected);
@@ -230,10 +246,7 @@ describe('buildings (§3.2, slots 18-19)', () => {
 
     const at = (k: number): LatLng => {
       const v = k < 2 ? 0 : 1;
-      return [
-        (c.lat[v] + c.bldPts[k * 2] * GEOM_SCALE) / 1e7,
-        (c.lon[v] + c.bldPts[k * 2 + 1] * GEOM_SCALE) / 1e7,
-      ];
+      return [(c.lat[v] + c.bldPts[k * 2] * GEOM_SCALE) / 1e7, (c.lon[v] + c.bldPts[k * 2 + 1] * GEOM_SCALE) / 1e7];
     };
     expect(at(0)[0]).toBeCloseTo(47.5805, 6);
     expect(at(0)[1]).toBeCloseTo(-122.2295, 6);
@@ -245,9 +258,12 @@ describe('buildings (§3.2, slots 18-19)', () => {
 describe('road names', () => {
   it('id 0 is the empty string, and named edges read back', () => {
     const c = load('island8');
-    const bridge = must([...Array(c.E).keys()].find((e) => c.flags[e] & FLAG.BRIDGE), 'bridge');
+    const bridge = must(
+      [...new Array(c.E).keys()].find((e) => c.flags[e] & FLAG.BRIDGE),
+      'bridge',
+    );
     expect(c.nameOf(bridge)).toBe('Bridge');
-    const unnamed = [...Array(c.E).keys()].find((e) => c.nameId[e] === 0);
+    const unnamed = [...new Array(c.E).keys()].find((e) => c.nameId[e] === 0);
     if (unnamed !== undefined) expect(c.nameOf(unnamed)).toBe('');
   });
 });
@@ -265,7 +281,7 @@ describe('single: precondition for sanity check §14.3', () => {
 describe('island: a single bridge out', () => {
   it('exactly one bridge pair, and all egress runs through it', () => {
     const c = load('island8');
-    const bridges = [...Array(c.E).keys()].filter((e) => c.flags[e] & FLAG.BRIDGE);
+    const bridges = [...new Array(c.E).keys()].filter((e) => c.flags[e] & FLAG.BRIDGE);
     expect(bridges.length).toBe(2);
     expect(c.X).toBe(1);
   });
@@ -289,7 +305,7 @@ describe('strongly connected components', () => {
     const g = {
       V: 3,
       csrOff: Uint32Array.from([0, 1, 2, 3]),
-      edgeTo: Uint32Array.from([1, 2, 0]),   // 0->1->2->0, but 2 is an exit
+      edgeTo: Uint32Array.from([1, 2, 0]), // 0->1->2->0, but 2 is an exit
       isExit: Uint8Array.from([0, 0, 1]),
     };
     const { comp } = stronglyConnectedComponents(g);
@@ -318,7 +334,10 @@ describe('validator catches corruption', () => {
 
   it('invariant 5: non-mutual twin', () => {
     const c = load('line10');
-    const e = must([...Array(c.E).keys()].find((i) => c.twin[i] !== NO_TWIN), 'twinned edge');
+    const e = must(
+      [...new Array(c.E).keys()].find((i) => c.twin[i] !== NO_TWIN),
+      'twinned edge',
+    );
     c.twin[e] = (e + 3) % c.E;
     expect(validateCity(c).join()).toMatch(/5:/);
   });

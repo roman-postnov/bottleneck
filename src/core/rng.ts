@@ -8,9 +8,9 @@
  */
 export type Rng = {
   /** Uniform in [0, 2^32). */
-  nextU32(): number;
+  nextU32: () => number;
   /** Uniform in [0, 1), 53 significant bits. */
-  next(): number;
+  next: () => number;
 };
 
 /**

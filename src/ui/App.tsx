@@ -1,13 +1,13 @@
 import { useEffect } from 'react';
-import { MapView } from './MapView.tsx';
+import { setState, useStore } from '../main/state.ts';
+import { CarPanel } from './CarPanel.tsx';
 import { Controls } from './Controls.tsx';
 import { EvacCurve } from './EvacCurve.tsx';
-import { MetricsPanel } from './MetricsPanel.tsx';
 import { Interventions } from './Interventions.tsx';
 import { Legend } from './Legend.tsx';
-import { CarPanel } from './CarPanel.tsx';
+import { MapView } from './MapView.tsx';
+import { MetricsPanel } from './MetricsPanel.tsx';
 import { Perf } from './Perf.tsx';
-import { setState, useStore } from '../main/state.ts';
 
 const showPerf = new URLSearchParams(location.search).get('perf') === '1';
 
@@ -21,6 +21,8 @@ export function App(): React.ReactElement {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
+  const statusText = status === 'loading' ? 'loading…' : status;
+
   return (
     <div className="app">
       <div className="stage">
@@ -33,6 +35,7 @@ export function App(): React.ReactElement {
           <div className="row title">
             <h1>Bottleneck</h1>
             <button
+              type="button"
               className="ghost"
               title="switch theme"
               onClick={() => setState({ theme: theme === 'light' ? 'dark' : 'light' })}
@@ -42,17 +45,13 @@ export function App(): React.ReactElement {
           </div>
           <p className="muted">{meta?.blurb ?? 'evacuation capacity of a city'}</p>
         </header>
-        {error && <div className="error">{error}</div>}
+        {error ? <div className="error">{error}</div> : null}
         <Controls />
         <CarPanel />
         <EvacCurve />
         <MetricsPanel />
         <Interventions />
-        <footer className="muted">
-          {status === 'loading' ? 'loading…' : status}
-          {' · '}
-          upper bound on an ideal dispatch; reality is worse
-        </footer>
+        <footer className="muted">{statusText} · upper bound on an ideal dispatch; reality is worse</footer>
       </aside>
     </div>
   );

@@ -1,6 +1,6 @@
 // From CONTRACTS.md §10: one seeded generator, no Math.random anywhere in core.
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createRng } from '../src/core/rng.ts';
 
 describe('rng', () => {
