@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createGraphView, paint, roadLayer } from '../src/render/layers.ts';
+import { closureLayer, contraflowLayer, createGraphView, markedPaths, paint, roadLayer } from '../src/render/layers.ts';
 import { LUT_SIZE, PALETTE } from '../src/render/palette.ts';
 
 function graphView() {
@@ -50,5 +50,60 @@ describe('road load layer', () => {
     const layer = roadLayer(view);
     expect(layer.props.updateTriggers?.getColor).toBe(view.revision);
     expect(layer.props.updateTriggers?.getWidth).toBe(view.revision);
+  });
+});
+
+describe('closed road layer', () => {
+  it('extracts every marked edge while excluding another network state', () => {
+    const view = createGraphView(
+      3,
+      Float64Array.from([0, 0, 1, 0, 10, 0, 11, 0, 20, 0, 21, 0]),
+      Uint32Array.from([0, 2, 4, 6]),
+    );
+
+    expect(markedPaths(view, Uint8Array.from([1, 1, 1]), Uint8Array.from([0, 1, 0]))).toEqual([
+      [
+        [0, 0],
+        [1, 0],
+      ],
+      [
+        [20, 0],
+        [21, 0],
+      ],
+    ]);
+  });
+
+  it('draws an ordinary closure as a neutral short dash over the full path', () => {
+    const paths = [
+      [
+        [10, 0],
+        [11, 0],
+      ],
+    ] as [number, number][][];
+    const layer = closureLayer(paths, PALETTE.light);
+    const extensionProps = layer.props as typeof layer.props & { getDashArray: number[]; getOffset: number };
+
+    expect(layer.id).toBe('closed-roads');
+    expect(layer.props.data).toBe(paths);
+    expect(layer.props.getColor).toBe(PALETTE.light.closed);
+    expect(extensionProps.getDashArray).toEqual([2, 2]);
+    expect(extensionProps.getOffset).toBe(1);
+    expect(layer.props.pickable).toBe(false);
+  });
+
+  it('draws contraflow with its own colour and longer dash', () => {
+    const paths = [
+      [
+        [10, 0],
+        [11, 0],
+      ],
+    ] as [number, number][][];
+    const layer = contraflowLayer(paths, PALETTE.dark);
+    const extensionProps = layer.props as typeof layer.props & { getDashArray: number[] };
+
+    expect(layer.id).toBe('contraflow-roads');
+    expect(layer.props.getColor).toBe(PALETTE.dark.contraflow);
+    expect(extensionProps.getDashArray).toEqual([8, 2]);
+    expect(layer.props.pickable).toBe(false);
   });
 });

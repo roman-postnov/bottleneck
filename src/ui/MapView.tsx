@@ -11,10 +11,14 @@ import { type FollowedCar, setState, useStore } from '../main/state.ts';
 import { carsLayer, edgePaths, followLayer, parkedLayer, stuckLayer, trailLayer } from '../render/carLayers.ts';
 import {
   type CutPaths,
+  closureLayer,
+  contraflowLayer,
   createGraphView,
   cutLayer,
   cutPaths,
   type GraphView,
+  type MarkedPaths,
+  markedPaths,
   paint,
   roadLayer,
 } from '../render/layers.ts';
@@ -55,6 +59,8 @@ type Scene = {
   view: GraphView;
   storage: Float32Array;
   cut: CutPaths;
+  closures: MarkedPaths;
+  contraflow: MarkedPaths;
   n: Float32Array;
   field: TracerField;
   origin: [lon: number, lat: number];
@@ -116,6 +122,8 @@ export function MapView(): React.ReactElement {
       cost.paint = performance.now() - t;
 
       const layers: unknown[] = [roadLayer(s.view)];
+      if (s.closures.length > 0) layers.push(closureLayer(s.closures, palette));
+      if (s.contraflow.length > 0) layers.push(contraflowLayer(s.contraflow, palette));
 
       if (opts.current.particles) {
         t = performance.now();
@@ -174,33 +182,37 @@ export function MapView(): React.ReactElement {
         const origin: [number, number] = [msg.meta.center[1], msg.meta.center[0]];
         const vertsM = toMeterOffsets(msg.positions, msg.meta.center);
         const { cum, edgeLen } = cumulative(msg.startIndices, vertsM, msg.E);
+        const field = createTracers({
+          E: msg.E,
+          V: msg.V,
+          totalVeh: msg.totalVeh,
+          seed: msg.seed,
+          csrOff: msg.csrOff,
+          edgeTo: msg.edgeTo,
+          isExit: msg.isExit,
+          ttSec: msg.ttSec,
+          split: msg.split,
+          demand0: msg.demand0,
+          demandNodes: msg.demandNodes,
+          nodeXY: msg.nodeXY,
+          maxOutDeg: msg.maxOutDeg,
+          bldOff: msg.bldOff,
+          bldXY: msg.bldXY,
+          storage: msg.storage,
+          startIndices: msg.startIndices,
+          vertsM,
+          cum,
+          edgeLen,
+        });
+        setNetwork(field, msg.storage, msg.blocked, msg.ttSec);
         sceneRef.current = {
           view,
           storage: msg.storage,
           cut: cutPaths(view, msg.cutEdges),
+          closures: markedPaths(view, msg.blocked, msg.contraflow),
+          contraflow: markedPaths(view, msg.contraflow),
           n: new Float32Array(msg.E),
-          field: createTracers({
-            E: msg.E,
-            V: msg.V,
-            totalVeh: msg.totalVeh,
-            seed: msg.seed,
-            csrOff: msg.csrOff,
-            edgeTo: msg.edgeTo,
-            isExit: msg.isExit,
-            ttSec: msg.ttSec,
-            split: msg.split,
-            demand0: msg.demand0,
-            demandNodes: msg.demandNodes,
-            nodeXY: msg.nodeXY,
-            maxOutDeg: msg.maxOutDeg,
-            bldOff: msg.bldOff,
-            bldXY: msg.bldXY,
-            storage: msg.storage,
-            startIndices: msg.startIndices,
-            vertsM,
-            cum,
-            edgeLen,
-          }),
+          field,
           origin,
           clock: new SimClock(),
           followed: -1,
@@ -228,6 +240,8 @@ export function MapView(): React.ReactElement {
         // A lanes or contraflow edit rewrites storage, and the renderer used to keep the one it
         // was handed at configure time -- so load, colour and every queue length went stale.
         s.storage = msg.storage;
+        s.closures = markedPaths(s.view, msg.blocked, msg.contraflow);
+        s.contraflow = markedPaths(s.view, msg.contraflow);
         setNetwork(s.field, msg.storage, msg.blocked, msg.ttSec);
         repaint.current = true;
       },

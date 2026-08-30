@@ -11,7 +11,7 @@ import { useStore } from '../main/state.ts';
 
 function what(edit: Edit): string {
   if (edit.op === 'addRoad') return 'added';
-  if (edit.op === 'close') return 'closed';
+  if (edit.op === 'close') return edit.cause === 'contraflow' ? 'contraflow' : 'closed';
   if (edit.op === 'contraflow') return 'contraflow';
   return `${edit.lanes} lane${edit.lanes === 1 ? '' : 's'}`;
 }
@@ -69,7 +69,7 @@ export function Interventions(): React.ReactElement | null {
             <span className="muted">
               {' '}
               · {probe.lanes} lane{probe.lanes === 1 ? '' : 's'}
-              {probe.blocked ? ' · closed' : null}
+              {probe.contraflow ? ' · contraflow' : probe.blocked ? ' · closed' : null}
             </span>
           </div>
           <div className="row">

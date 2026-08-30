@@ -28,6 +28,16 @@ let lastSpeedT = 0;
 let actualX = 0;
 let lastReady: ReadyMessage | null = null;
 
+function networkCounts(blocked: Uint8Array, contraflow: Uint8Array): { closedRoads: number; contraflowRoads: number } {
+  let closedRoads = 0;
+  let contraflowRoads = 0;
+  for (let e = 0; e < blocked.length; e++) {
+    if (contraflow[e]) contraflowRoads++;
+    else if (blocked[e]) closedRoads++;
+  }
+  return { closedRoads, contraflowRoads };
+}
+
 export const client = new SimClient();
 
 export function attachRenderer(next: FrameSink | null): void {
@@ -55,6 +65,7 @@ client.on('ready', (msg) => {
     clock: { t: 0, evacuated: 0, enRoute: 0, notDeparted: msg.totalVeh, actualX: 0 },
     curve: [],
     metrics: null,
+    ...networkCounts(msg.blocked, msg.contraflow),
   });
   sink?.onReady(msg);
 });
@@ -92,6 +103,7 @@ client.on('frame', (msg) => {
 
 client.on('network', (msg) => {
   sink?.onNetwork(msg);
+  setState(networkCounts(msg.blocked, msg.contraflow));
 });
 
 client.on('curve', (msg) => {
@@ -188,6 +200,8 @@ export function selectCity(id: string): void {
     presetId: null,
     probe: null,
     showCut: false,
+    closedRoads: 0,
+    contraflowRoads: 0,
     baselineT90: null,
     link: null,
   });

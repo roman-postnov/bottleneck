@@ -53,6 +53,10 @@ export type Theme = 'dark' | 'light';
 export type Palette = {
   load: Uint8Array;
   cut: [number, number, number];
+  /** A neutral, high-contrast overlay for a direction which is closed to traffic. */
+  closed: [number, number, number];
+  /** The reversed side of a contraflow corridor, distinct from an ordinary closure. */
+  contraflow: [number, number, number];
   /**
    * Cars. It has to read against the road it sits on, and the road it sits on is dark exactly
    * when it is full -- which is when there are cars to show. So the dot is the opposite of the
@@ -88,6 +92,8 @@ export const PALETTE: Record<Theme, Palette> = {
   dark: {
     load: ramp(DARK),
     cut: [0xff, 0x3b, 0x30],
+    closed: [0xb8, 0xc2, 0xcc],
+    contraflow: [0x60, 0xa5, 0xfa],
     particle: [0xf2, 0xf6, 0xfa],
     particleEdge: [0x0a, 0x12, 0x1a],
     carDense: [0xf2, 0xf6, 0xfa],
@@ -98,6 +104,8 @@ export const PALETTE: Record<Theme, Palette> = {
   light: {
     load: ramp(LIGHT),
     cut: [0xe1, 0x1d, 0x48],
+    closed: [0x3b, 0x47, 0x54],
+    contraflow: [0x25, 0x63, 0xeb],
     particle: [0xff, 0xff, 0xff],
     particleEdge: [0x16, 0x2a, 0x3d],
     carDense: [0x16, 0x2a, 0x3d],

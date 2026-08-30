@@ -67,6 +67,8 @@ function configure(next: Scenario): void {
 
   const geo = buildEdgeGeometry(city);
   const storage = Float32Array.from(s.storage);
+  const blocked = Uint8Array.from(s.blocked);
+  const contraflow = Uint8Array.from(s.contraflow);
 
   // Copies, not the city's own views, and not s.ttSec either. Every section of city.bin is a
   // view on one ArrayBuffer (§5) and s.ttSec IS s.ringLen -- transferring any of them would
@@ -93,6 +95,8 @@ function configure(next: Scenario): void {
       V: city.V,
       totalVeh: s.totalVeh,
       storage,
+      blocked,
+      contraflow,
       positions: geo.positions,
       startIndices: geo.startIndices,
       vertexOff: Uint32Array.from(geo.startIndices),
@@ -113,6 +117,8 @@ function configure(next: Scenario): void {
     },
     [
       storage.buffer,
+      blocked.buffer,
+      contraflow.buffer,
       geo.positions.buffer,
       geo.startIndices.buffer,
       csrOff.buffer,
@@ -199,8 +205,14 @@ function emitFrame(ticksInFrame: number, wallMs: number, force = false): void {
 function postNetwork(s: SimState): void {
   const storage = Float32Array.from(s.storage);
   const blocked = Uint8Array.from(s.blocked);
+  const contraflow = Uint8Array.from(s.contraflow);
   const ttSec = Uint16Array.from(s.ttSec);
-  post({ type: 'network', storage, blocked, ttSec }, [storage.buffer, blocked.buffer, ttSec.buffer]);
+  post({ type: 'network', storage, blocked, contraflow, ttSec }, [
+    storage.buffer,
+    blocked.buffer,
+    contraflow.buffer,
+    ttSec.buffer,
+  ]);
 }
 
 function emitCurve(): void {
@@ -309,6 +321,7 @@ function answerProbe(edgeId: number): void {
     load: s.n[e] / s.storage[e],
     twin: city.twin[e],
     blocked: s.blocked[e] === 1,
+    contraflow: s.contraflow[e] === 1,
   });
 }
 

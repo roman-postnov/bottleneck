@@ -77,7 +77,7 @@ function skywayContraflow(c: City): Edit[] {
   const sky = edgesNamed(c, 'Skyway');
   return [
     ...sky.filter(outbound).map((e) => ({ op: 'lanes' as const, edgeId: e, lanes: 4 })),
-    ...sky.filter((e) => !outbound(e)).map((e) => ({ op: 'close' as const, edgeId: e })),
+    ...sky.filter((e) => !outbound(e)).map((e) => ({ op: 'close' as const, edgeId: e, cause: 'contraflow' as const })),
   ];
 }
 

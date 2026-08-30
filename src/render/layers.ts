@@ -126,18 +126,72 @@ export function roadLayer(view: GraphView): PathLayer {
 
 export type CutPaths = [number, number][][];
 
+export type MarkedPaths = [number, number][][];
+
+function edgePath(view: GraphView, e: number): [number, number][] {
+  const path: [number, number][] = [];
+  for (let k = view.startIndices[e]; k < view.startIndices[e + 1]; k++) {
+    path.push([view.positions[k * 2], view.positions[k * 2 + 1]]);
+  }
+  return path;
+}
+
 /** The cut is a handful of edges, so it gets plain paths rather than a second binary buffer. */
 export function cutPaths(view: GraphView, cutEdges: Uint32Array): CutPaths {
   const out: CutPaths = [];
   for (let i = 0; i < cutEdges.length; i++) {
-    const e = cutEdges[i];
-    const path: [number, number][] = [];
-    for (let k = view.startIndices[e]; k < view.startIndices[e + 1]; k++) {
-      path.push([view.positions[k * 2], view.positions[k * 2 + 1]]);
-    }
-    out.push(path);
+    out.push(edgePath(view, cutEdges[i]));
   }
   return out;
+}
+
+/** Extracted only when the network changes; the resulting data identity stays stable per frame. */
+export function markedPaths(view: GraphView, marked: Uint8Array, exclude?: Uint8Array): MarkedPaths {
+  const out: MarkedPaths = [];
+  for (let e = 0; e < view.E; e++) {
+    if (marked[e] && !exclude?.[e]) out.push(edgePath(view, e));
+  }
+  return out;
+}
+
+/** An ordinary road closure: a neutral short dash over the full affected geometry. */
+export function closureLayer(paths: MarkedPaths, palette: Palette): PathLayer {
+  return new PathLayer({
+    id: 'closed-roads',
+    data: paths,
+    getPath: (d: [number, number][]) => d,
+    getColor: palette.closed,
+    getWidth: 10,
+    widthUnits: 'meters',
+    widthMinPixels: 3,
+    widthMaxPixels: 12,
+    getDashArray: [2, 2],
+    dashJustified: true,
+    getOffset: OFFSET,
+    extensions: [dashedOffset],
+    pickable: false,
+    parameters: { depthCompare: 'always' },
+  });
+}
+
+/** Contraflow: a blue long dash along the whole reversed corridor, separate from closure. */
+export function contraflowLayer(paths: MarkedPaths, palette: Palette): PathLayer {
+  return new PathLayer({
+    id: 'contraflow-roads',
+    data: paths,
+    getPath: (d: [number, number][]) => d,
+    getColor: palette.contraflow,
+    getWidth: 10,
+    widthUnits: 'meters',
+    widthMinPixels: 3,
+    widthMaxPixels: 12,
+    getDashArray: [8, 2],
+    dashJustified: true,
+    getOffset: OFFSET,
+    extensions: [dashedOffset],
+    pickable: false,
+    parameters: { depthCompare: 'always' },
+  });
 }
 
 /**

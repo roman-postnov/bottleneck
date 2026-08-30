@@ -73,6 +73,10 @@ export type UiState = {
   particles: boolean;
   /** Cars still in a driveway. The whole fleet at t = 0, so it is worth being able to hide. */
   showParked: boolean;
+  /** Number of directed edges currently closed, used to show the map key only when relevant. */
+  closedRoads: number;
+  /** Closed directed edges which are the reversed side of a contraflow corridor. */
+  contraflowRoads: number;
   followed: FollowedCar | null;
   perf: FrameCost | null;
   /** T90 of the last completed run that carried no edits, for the delta an intervention
@@ -102,6 +106,8 @@ const initial: UiState = {
   theme: 'light',
   particles: true,
   showParked: true,
+  closedRoads: 0,
+  contraflowRoads: 0,
   followed: null,
   perf: null,
   baselineT90: null,

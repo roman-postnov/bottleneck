@@ -411,6 +411,10 @@ button.primary {
   flex: none;
   border-top: 3px dashed;
 }
+.legend .dash.contraflow {
+  width: 22px;
+  border-top-style: solid;
+}
 
 .perf {
   position: absolute;

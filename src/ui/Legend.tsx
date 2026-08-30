@@ -18,11 +18,15 @@ export function Legend(): React.ReactElement | null {
   const showCut = useStore((s) => s.showCut);
   const particles = useStore((s) => s.particles);
   const showParked = useStore((s) => s.showParked);
+  const closedRoads = useStore((s) => s.closedRoads);
+  const contraflowRoads = useStore((s) => s.contraflowRoads);
   const stranded = useStore((s) => s.perf?.stuck ?? 0);
   const ready = useStore((s) => s.ready);
   if (!ready) return null;
 
   const cut = PALETTE[theme].cut;
+  const closed = PALETTE[theme].closed;
+  const contraflow = PALETTE[theme].contraflow;
   const dot = PALETTE[theme].particle;
   const parked = PALETTE[theme].parked;
   const stuck = PALETTE[theme].stuck;
@@ -60,6 +64,21 @@ export function Legend(): React.ReactElement | null {
           <i className="dash" style={{ borderColor: `rgb(${cut[0]},${cut[1]},${cut[2]})` }} />
           the bottleneck — {ready.cutEdges.length} road
           {ready.cutEdges.length === 1 ? '' : 's'}, {ready.maxFlowVehH.toLocaleString()} veh/h
+        </div>
+      )}
+      {closedRoads > 0 && (
+        <div className="key">
+          <i className="dash" style={{ borderColor: `rgb(${closed[0]},${closed[1]},${closed[2]})` }} />
+          closed to traffic
+        </div>
+      )}
+      {contraflowRoads > 0 && (
+        <div className="key">
+          <i
+            className="dash contraflow"
+            style={{ borderColor: `rgb(${contraflow[0]},${contraflow[1]},${contraflow[2]})` }}
+          />
+          contraflow — direction reversed
         </div>
       )}
       <div className="key muted">each direction of travel is its own line</div>

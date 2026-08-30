@@ -348,247 +348,308 @@
     },
     {
       "op": "close",
-      "edgeId": 70
+      "edgeId": 70,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 192
+      "edgeId": 192,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 296
+      "edgeId": 296,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 428
+      "edgeId": 428,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 525
+      "edgeId": 525,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 624
+      "edgeId": 624,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 727
+      "edgeId": 727,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 734
+      "edgeId": 734,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 911
+      "edgeId": 911,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 1247
+      "edgeId": 1247,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 1373
+      "edgeId": 1373,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 1652
+      "edgeId": 1652,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 1663
+      "edgeId": 1663,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 1696
+      "edgeId": 1696,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 1775
+      "edgeId": 1775,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 1911
+      "edgeId": 1911,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 1945
+      "edgeId": 1945,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 1956
+      "edgeId": 1956,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 2100
+      "edgeId": 2100,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 2273
+      "edgeId": 2273,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 2294
+      "edgeId": 2294,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 2312
+      "edgeId": 2312,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 2338
+      "edgeId": 2338,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 2457
+      "edgeId": 2457,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 2460
+      "edgeId": 2460,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 2486
+      "edgeId": 2486,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 2545
+      "edgeId": 2545,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 2607
+      "edgeId": 2607,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 2656
+      "edgeId": 2656,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 2695
+      "edgeId": 2695,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 2742
+      "edgeId": 2742,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 2784
+      "edgeId": 2784,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 2793
+      "edgeId": 2793,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 2840
+      "edgeId": 2840,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 2944
+      "edgeId": 2944,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 3069
+      "edgeId": 3069,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 3106
+      "edgeId": 3106,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 3172
+      "edgeId": 3172,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 3321
+      "edgeId": 3321,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 3322
+      "edgeId": 3322,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 3417
+      "edgeId": 3417,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 3480
+      "edgeId": 3480,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 3506
+      "edgeId": 3506,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 3549
+      "edgeId": 3549,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 3553
+      "edgeId": 3553,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 3714
+      "edgeId": 3714,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 3871
+      "edgeId": 3871,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 3880
+      "edgeId": 3880,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 4015
+      "edgeId": 4015,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 4025
+      "edgeId": 4025,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 4073
+      "edgeId": 4073,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 4103
+      "edgeId": 4103,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 4105
+      "edgeId": 4105,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 4107
+      "edgeId": 4107,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 4165
+      "edgeId": 4165,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 4167
+      "edgeId": 4167,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 4169
+      "edgeId": 4169,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 4191
+      "edgeId": 4191,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 4248
+      "edgeId": 4248,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 4256
+      "edgeId": 4256,
+      "cause": "contraflow"
     },
     {
       "op": "close",
-      "edgeId": 4274
+      "edgeId": 4274,
+      "cause": "contraflow"
     },
     {
       "op": "close",

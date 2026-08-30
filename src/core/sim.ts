@@ -57,6 +57,7 @@ export function createSim(city: City, params: Params, edits: Edit[] = []): SimSt
   const edgeCostObs = Float32Array.from(edgeCostFree);
 
   const blocked = new Uint8Array(E);
+  const contraflow = new Uint8Array(E);
   const nd = city.maxInDeg + 1;
 
   const edgeIdOf = new Float64Array(E);
@@ -77,6 +78,7 @@ export function createSim(city: City, params: Params, edits: Edit[] = []): SimSt
     cap,
     storage,
     blocked,
+    contraflow,
     ttSec,
 
     demand: new Float32Array(E),
@@ -281,6 +283,7 @@ export function applyEdits(s: SimState, edits: Edit[]): void {
     switch (edit.op) {
       case 'close':
         s.blocked[e] = 1;
+        s.contraflow[e] = edit.cause === 'contraflow' ? 1 : 0;
         s.cap[e] = 0;
         break;
       case 'lanes':
@@ -292,6 +295,7 @@ export function applyEdits(s: SimState, edits: Edit[]): void {
         setLanes(s, e, s.lanes[e] + s.lanes[twin]);
         setLanes(s, twin, 0);
         s.blocked[twin] = 1;
+        s.contraflow[twin] = 1;
         s.cap[twin] = 0;
         break;
       }
@@ -307,6 +311,7 @@ function setLanes(s: SimState, e: number, lanes: number): void {
   // opened again, and the Camp Fire timeline has Clark Road reopening at 13:00.
   if (lanes > 0) {
     s.blocked[e] = 0;
+    s.contraflow[e] = 0;
   }
   s.lanes[e] = lanes;
   s.cap[e] = capVehS(lanes, classOf(s.city.flags[e]), s.params.satFlowPerLane);

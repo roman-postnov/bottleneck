@@ -154,6 +154,8 @@ export type SimState = {
   cap: Float32Array;
   storage: Float32Array;
   blocked: Uint8Array;
+  /** [E] subset of blocked created by a contraflow intervention, for truthful map styling. */
+  contraflow: Uint8Array;
   ttSec: Uint16Array;
 
   demand: Float32Array;
@@ -232,7 +234,7 @@ export type SimState = {
 /** `atMin` (§9.1) is the minute of model time the edit lands on; absent means "at configure",
  *  before the first tick. It is what lets a closure made mid-run survive into the permalink. */
 export type Edit =
-  | { op: 'close'; edgeId: number; atMin?: number }
+  | { op: 'close'; edgeId: number; atMin?: number; cause?: 'contraflow' }
   | { op: 'lanes'; edgeId: number; lanes: number; atMin?: number }
   | { op: 'contraflow'; edgeId: number; atMin?: number }
   | {

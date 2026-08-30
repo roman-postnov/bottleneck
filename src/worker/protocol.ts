@@ -26,6 +26,10 @@ export type ReadyMessage = {
   totalVeh: number;
   /** [E] -- the frame carries only n, and load = n / storage (§8). */
   storage: Float32Array;
+  /** [E] 1 where the configured scenario has already closed this direction. */
+  blocked: Uint8Array;
+  /** [E] subset of blocked whose cause is contraflow rather than a road closure. */
+  contraflow: Uint8Array;
   /** Flattened [lon, lat] pairs for every vertex of every edge polyline (§13). */
   positions: Float64Array;
   /** [E+1] vertex index where each edge's polyline starts. Uint32, never Uint16 (§13.1). */
@@ -111,6 +115,7 @@ export type WorkerToMain =
       /** 0xFFFFFFFF when the road has no opposite direction: §9.3 cannot contraflow it. */
       twin: number;
       blocked: boolean;
+      contraflow: boolean;
     }
   | { type: 'names'; names: Record<number, string> }
   /**
@@ -118,7 +123,13 @@ export type WorkerToMain =
    * was reading the one from `ready` forever, and setLanes rewrites it -- so load, colour and
    * the queue length of a dot were all computed against a stale array after any lanes edit.
    */
-  | { type: 'network'; storage: Float32Array; blocked: Uint8Array; ttSec: Uint16Array }
+  | {
+      type: 'network';
+      storage: Float32Array;
+      blocked: Uint8Array;
+      contraflow: Uint8Array;
+      ttSec: Uint16Array;
+    }
   | { type: 'error'; where: string; message: string };
 
 /**

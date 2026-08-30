@@ -138,6 +138,17 @@ describe('§9.3: contraflow', () => {
     expect(s.lanes[e]).toBe(before);
     expect(s.lanes[twin]).toBe(0);
     expect(s.blocked[twin]).toBe(1);
+    expect(s.contraflow[twin]).toBe(1);
+  });
+
+  it('keeps an ordinary closure distinct from a contraflow closure', () => {
+    const { s } = sim('line10', [
+      { op: 'close', edgeId: 0, cause: 'contraflow' },
+      { op: 'close', edgeId: 1 },
+    ]);
+
+    expect(s.contraflow[0]).toBe(1);
+    expect(s.contraflow[1]).toBe(0);
   });
 });
 
