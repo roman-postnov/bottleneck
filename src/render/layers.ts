@@ -15,10 +15,10 @@ const OFFSET = 1;
 const offsetOnly = new PathStyleExtension({ offset: true });
 const dashedOffset = new PathStyleExtension({ offset: true, dash: true });
 
-/** Metres, before deck.gl's pixel clamping. A jammed road has to be thick as well as dark;
- *  an empty one has to be a hairline, or a dense grid fills the screen before anything moves. */
+/** Metres, before deck.gl's pixel clamping. Colour carries the load; width only reinforces it
+ *  slightly, so a stopped road does not obscure its neighbours or the cars drawn over it. */
 const WIDTH_EMPTY = 4;
-const WIDTH_JAMMED = 26;
+const WIDTH_JAMMED = WIDTH_EMPTY * 1.2;
 
 export type GraphView = {
   E: number;
@@ -97,6 +97,12 @@ export function paint(view: GraphView, n: Float32Array, storage: Float32Array, p
       widths[k] = w;
     }
   }
+  // deck.gl shallow-compares binary attribute descriptors. Mutating the typed arrays while
+  // keeping these two objects makes setBinaryValue treat them as already uploaded, so every
+  // road stays at its initial empty colour. Refresh only the descriptors: the outer data and
+  // the geometry remain stable, therefore PathLayer does not re-tesselate the polylines.
+  view.data.attributes.getColor = { value: colors, size: 3 };
+  view.data.attributes.getWidth = { value: widths, size: 1 };
   view.revision++;
 }
 
