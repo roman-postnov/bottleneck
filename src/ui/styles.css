@@ -7,6 +7,8 @@
   --text: #d8dee6;
   --muted: #7c8794;
   --accent: #4ea8de;
+  --accent-hover: #71b7e4;
+  --accent-ink: #0d1117;
   --warn: #e8c33a;
   --error: #d94436;
   --good: #1a7f5a;
@@ -21,6 +23,8 @@
   --text: #14202c;
   --muted: #5c6a78;
   --accent: #1668a8;
+  --accent-hover: #0f568c;
+  --accent-ink: #ffffff;
   --warn: #a86a00;
   --error: #c0251a;
   --good: #157f5c;
@@ -359,8 +363,20 @@ button.ghost {
   color: var(--muted);
 }
 button.primary {
+  background: var(--accent);
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  min-width: 76px;
+  padding: 6px 12px;
+}
+button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+button.primary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .check.strong {
   color: var(--text);
