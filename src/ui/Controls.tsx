@@ -28,7 +28,7 @@ export function Controls(): React.ReactElement {
   const speedX = useStore((s) => s.speedX);
   const scenario = useStore((s) => s.scenario);
   const ready = useStore((s) => s.ready);
-  const showCut = useStore((s) => s.showCut);
+  // const showCut = useStore((s) => s.showCut);
   const particles = useStore((s) => s.particles);
   const showParked = useStore((s) => s.showParked);
 
@@ -90,10 +90,10 @@ export function Controls(): React.ReactElement {
         <span>{(pct * 100).toFixed(1)}% evacuated</span>
       </div>
 
-      <label className="check strong">
+      {/* <label className="check strong">
         <input type="checkbox" checked={showCut} onChange={(e) => setState({ showCut: e.target.checked })} />
         show the bottleneck — every car has to pass here
-      </label>
+      </label> */}
 
       <div className="row">
         <label htmlFor={speedId}>Speed</label>
