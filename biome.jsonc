@@ -34,17 +34,14 @@
     "enabled": true,
     "domains": { "react": "all", "test": "all" },
     "rules": {
-      // Every rule of every group, at error. What follows are the exceptions, and each one
-      // names the decision in CONTRACTS.md it would otherwise overrule.
+      // Enable every rule; exceptions below document project-specific constraints.
       "preset": "all",
       "a11y": "error",
       "complexity": {
-        // §15 fixes the module layout and the owner decided against splitting files before
-        // the deadline. A size threshold would report that decision as an error every run.
+        // Module boundaries follow §15 rather than line or complexity thresholds.
         "noExcessiveLinesPerFunction": "off",
         "noExcessiveCognitiveComplexity": "off",
-        // The tick and the node model take the state struct plus indices; §16.5 forbids
-        // allocating a wrapper object per call to please a parameter count.
+        // Hot-path functions take reusable state and indices to avoid wrapper allocations (§16.5).
         "useMaxParams": "off"
       },
       "correctness": {
@@ -61,7 +58,7 @@
       },
       "security": "error",
       "style": {
-        // §15 fixes the module layout; see the complexity group above.
+        // Module boundaries follow §15 rather than a line threshold.
         "noExcessiveLinesPerFile": "off",
         // A mesoscopic model is numbers: typed-array indices, the byte offsets of the §3
         // binary format, unit conversions. The parameters that are model decisions already

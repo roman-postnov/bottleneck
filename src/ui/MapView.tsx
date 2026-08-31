@@ -238,8 +238,7 @@ export function MapView(): React.ReactElement {
       onNetwork(msg) {
         const s = sceneRef.current;
         if (!s) return;
-        // A lanes or contraflow edit rewrites storage, and the renderer used to keep the one it
-        // was handed at configure time -- so load, colour and every queue length went stale.
+        // Lane and contraflow edits change the arrays used for load, colour, and queue placement.
         s.storage = msg.storage;
         s.closures = markedPaths(s.view, msg.blocked, msg.contraflow);
         s.contraflow = markedPaths(s.view, msg.contraflow);

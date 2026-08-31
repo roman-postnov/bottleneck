@@ -1,7 +1,7 @@
 // The frame-cost profiler behind the perf panel. Split out of MapView because it is arithmetic
 // over four numbers and has no business inside a React component.
 
-/** The four stages of a frame, named. They used to be cost[0..3], read only at the far end. */
+/** Timings for the four stages of a rendered frame. */
 export type FrameCostCells = {
   paint: number;
   step: number;

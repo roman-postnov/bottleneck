@@ -13,19 +13,14 @@ import type { BinaryPoints, TracerField } from './tracers.ts';
  */
 export const INDIVIDUAL_ZOOM = 15;
 
-/** Metres. A car is about this long, which is the only honest number now that a dot is one. */
+/** Approximate car length in metres. */
 const CAR_M = 2.2;
 
 type Origin = [lon: number, lat: number];
 
 /**
- * The `{length, attributes}` wrapper is rebuilt every frame, ON PURPOSE, and this is the one
- * place where §13.1's "never recreate `data`" does not apply. That rule is about PathLayer
- * re-tesselating its polylines. A ScatterplotLayer tesselates nothing -- but it reads the
- * instance count off `data.length`, and with a stable object identity it never reads it again.
- * Hoisting the wrapper cost exactly that: 905 cars counted, one drawn.
- *
- * The buffers themselves are never copied; only this three-field object is.
+ * Rebuild the small wrapper so ScatterplotLayer observes a changing instance count. The typed
+ * buffers are reused; §13.1's stable-data rule applies to PathLayer tessellation, not this layer.
  */
 function points(
   id: string,
@@ -65,15 +60,11 @@ export function carsLayer(
 ): ScatterplotLayer {
   const individual = zoom >= INDIVIDUAL_ZOOM;
   return points('cars', f.count, f.pos, origin, revision, {
-    // Two colours, not one: without the outline the pale fill of the individual regime is a
-    // white dot on a white basemap, which is exactly as invisible as it sounds.
+    // The outline keeps the individual-car fill visible on both roads and the basemap.
     getFillColor: individual ? palette.particle : palette.carDense,
     getLineColor: palette.particleEdge,
     getRadius: CAR_M,
-    // Barely more than a pixel when zoomed out, so overlapping cars read as density rather
-    // than as a blanket. Drawing every car and letting the coverage add up is a correct density
-    // picture that costs no lie about the count -- and fewer dots than cars is the lie §13.2
-    // used to have to admit to.
+    // Small dots read as density when zoomed out while preserving one dot per car.
     radiusMinPixels: individual ? 1.6 : 1.1,
     radiusMaxPixels: individual ? 8 : 6,
     // The outline IS the whole dot at a pixel across, and it doubles the fragment work.
@@ -100,9 +91,7 @@ export function parkedLayer(
   return points('parked', f.parkedCount, f.parkedPos, origin, revision, {
     getFillColor: palette.parked,
     getRadius: CAR_M,
-    // Deliberately below the moving cars in weight. Parked outnumbers moving by two orders of
-    // magnitude for most of a run, and at equal weight the yards drown the traffic -- which is
-    // backwards, because the traffic is the thing being watched.
+    // Parked cars stay quieter so they do not obscure the moving traffic.
     radiusMinPixels: individual ? 1.2 : 0.55,
     radiusMaxPixels: individual ? 5 : 3,
     stroked: false,
@@ -111,7 +100,7 @@ export function parkedLayer(
   });
 }
 
-/** Cars the network stranded -- §11's `stranded`, on the map for the first time. */
+/** Cars the network stranded (§11). */
 export function stuckLayer(f: TracerField, palette: Palette, origin: Origin, revision: number): ScatterplotLayer {
   return points('stuck', f.stuckCount, f.stuckPos, origin, revision, {
     getFillColor: palette.stuck,
@@ -183,8 +172,7 @@ export function edgePaths(view: GraphView, edges: ArrayLike<number>): [number, n
     const e = edges[i];
     for (let k = view.startIndices[e]; k < view.startIndices[e + 1]; k++) {
       const pt: [number, number] = [view.positions[k * 2], view.positions[k * 2 + 1]];
-      // Two edges meeting at a node used to land on the same vertex twice. They no longer do --
-      // each is offset to its own right (§13.1) -- but a route may still repeat a coordinate.
+      // Directed edge offsets can still produce a repeated coordinate at a route join (§13.1).
       const last = path[path.length - 1];
       if (!last || last[0] !== pt[0] || last[1] !== pt[1]) path.push(pt);
     }

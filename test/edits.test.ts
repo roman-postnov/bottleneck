@@ -155,9 +155,7 @@ describe('§9.3: contraflow', () => {
 });
 
 describe('§12: the ceiling follows the edited network', () => {
-  // maxFlow used to price every edge off city.lanes, so a contraflow raised the flow the
-  // simulation achieved without raising the ceiling it is measured against -- efficiency
-  // above one, and check 9 broken by the metric rather than by the physics.
+  // Max-flow must use edited lanes so efficiency remains bounded by the current network.
   it('widening the roads out raises maxFlowVehH', () => {
     const c = loadFixture('grid20');
     const p = params('grid20');

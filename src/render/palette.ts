@@ -79,10 +79,7 @@ export type Palette = {
    * loud yard would read as a city already in gridlock -- which is the opposite of the truth.
    */
   parked: [number, number, number, number];
-  /**
-   * Cars the network has stranded: no route out from where they stand. These are §11's
-   * `stranded`, and this is the first time that number is visible on the map at all.
-   */
+  /** Cars the network has stranded (§11). */
   stuck: [number, number, number];
   /** The route of the car being followed. */
   trail: [number, number, number];

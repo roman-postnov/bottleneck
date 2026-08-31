@@ -201,11 +201,7 @@ function emitFrame(ticksInFrame: number, wallMs: number, force = false): void {
   );
 }
 
-/**
- * §9.3 changes storage, blocked and cap under a running network. The renderer used to keep the
- * `storage` it got at configure time forever, so every load, colour and queue length went stale
- * after a lanes or contraflow edit. Rare and user-driven, so fresh arrays rather than a pool.
- */
+/** Send fresh network arrays after a §9.3 edit; these updates are rare and do not need a pool. */
 function postNetwork(s: SimState): void {
   const storage = Float32Array.from(s.storage);
   const blocked = Uint8Array.from(s.blocked);

@@ -100,9 +100,7 @@ describe('closed road layer', () => {
   });
 
   it('separates the directions in the geometry, not with a shader offset', () => {
-    // The offset used to be PathStyleExtension({offset: true}) with getOffset: 1, which moved the
-    // ribbon and left the cars on the centreline. It is now LANE_OFFSET_M, baked into the polyline
-    // by the worker, and it is this number -- one lane wide, one lane over.
+    // The worker bakes the one-lane offset into geometry so roads and cars stay aligned.
     expect(LANE_OFFSET_M).toBe(WIDTH_EMPTY);
     expect(roadLayer(graphView()).props.extensions).toEqual([]);
 

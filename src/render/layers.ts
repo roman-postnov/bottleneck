@@ -5,14 +5,7 @@ import { PathStyleExtension } from '@deck.gl/extensions';
 import { PathLayer } from '@deck.gl/layers';
 import { LUT_SIZE, type Palette } from './palette.ts';
 
-/**
- * The separation of the two directions is NOT done here. It is LANE_OFFSET_M, baked into the
- * polyline in src/worker/geometry.ts, so the line, the cars on it, the trail and these dashes all
- * read one geometry (§13.1). PathStyleExtension({offset: true}) used to do it, and it moved the
- * ribbon without moving the cars; worse, its offset is a CLAMPED-PIXEL width (widthMinPixels
- * applies before DECKGL_FILTER_SIZE), so the displacement was ~0.7 px -- about 21 m of ground --
- * at z12 and ~4 m at z18, and the mismatch grew as you zoomed out.
- */
+/** Direction separation is baked into worker geometry so roads, cars, trails, and dashes align (§13.1). */
 const dashed = new PathStyleExtension({ dash: true });
 
 /** Metres, before deck.gl's pixel clamping. Colour carries the load; width only reinforces it
@@ -32,12 +25,7 @@ export type GraphView = {
   widths: Float32Array;
   vertexCount: number;
   revision: number;
-  /**
-   * §13.1: recreating `data` every frame is forbidden, and the reason is not style. A fresh
-   * object identity makes deck.gl re-tesselate every polyline -- 171 807 vertices on San
-   * Francisco, sixty times a second, outside any timer this file could report. Measured cost
-   * of getting this wrong: the requested x600 came out as an actual x2.5.
-   */
+  /** Stable identity prevents deck.gl from re-tessellating every road each frame (§13.1). */
   data: {
     length: number;
     startIndices: Uint32Array;
@@ -52,10 +40,7 @@ export type GraphView = {
 export function createGraphView(E: number, positions: Float64Array, startIndices: Uint32Array): GraphView {
   const vertexCount = startIndices[E];
   const colors = new Uint8Array(vertexCount * 3);
-  // Per VERTEX, not per path -- same rule as the colours (§13.1). Sized [E] this silently
-  // under-supplies the instanced draw: Chromium reads past the buffer and draws garbage
-  // widths, Firefox refuses the draw call outright and the entire road layer disappears
-  // ("Instance fetch requires 15790, but attribs only supply 2703").
+  // Widths are per vertex, matching the binary PathLayer attributes (§13.1).
   const widths = new Float32Array(vertexCount).fill(WIDTH_EMPTY);
   return {
     E,

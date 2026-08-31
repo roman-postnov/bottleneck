@@ -126,9 +126,6 @@ function departOne(f: TracerField, v: number, simT: number, n?: Float32Array): v
 }
 
 describe('§15: src/render and src/worker share their leaf modules rather than copy them', () => {
-  // The projection used to be two copies of a pair of constants pinned to each other here. It is
-  // now one module under src/shared, pinned to deck.gl itself in test/geo.test.ts -- which is the
-  // pin that was missing: both copies agreed and both were wrong.
   it('the stateless mixer agrees with the first output of the stateful one', () => {
     for (const seed of [0, 1, 42, 12345, -7, 0x7fffffff, 0x9e3779b9 | 0]) {
       expect(mix32(seed), `seed ${seed}`).toBe(splitmix32(seed)());

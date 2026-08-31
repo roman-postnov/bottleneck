@@ -1,8 +1,6 @@
 // docs/VALIDATION.md §7, checks S5 and S6: the ones that need a full run.
 //
-// Not a vitest file. Three runs of 377 thousand vehicles are minutes of wall clock, and a
-// gate that slow on every merge gets switched off within a week -- better to say so than to
-// discover it switched off. S1-S4 are milliseconds and live in test/sf.test.ts.
+// Not a vitest file: three full runs take minutes. Fast graph checks live in test/sf.test.ts.
 //
 //     npm run validate:sf
 
@@ -13,9 +11,7 @@ import { normalizeScenario, resolveParams } from '../src/core/scenario.ts';
 import { createSim, metrics, tick, updateFrameStats } from '../src/core/sim.ts';
 import type { City, Metrics, Scenario } from '../src/core/types.ts';
 
-// The full horizon of §2, not the twelve hours Paradise needs: with the Bay Bridge gone the
-// city is still emptying after a day and a half, and a run cut short reports t90 as "never"
-// rather than as a number S6 can compare.
+// Use the full §2 horizon so the bridge-closure run reaches t90.
 const UNTIL = 48 * 3600;
 
 function publicCity(id: string): City {

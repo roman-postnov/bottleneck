@@ -9,7 +9,7 @@ const D2R = Math.PI / 180;
  * One lane, metres, to the right of the direction of travel. Baked into the edge polyline in
  * src/worker/geometry.ts rather than applied by a shader, so the road line, the cars on it, the
  * trail and the closure dashes are all one geometry (§13.1). Equal to WIDTH_EMPTY in
- * src/render/layers.ts, which is what makes the line land where it did before.
+ * src/render/layers.ts.
  */
 export const LANE_OFFSET_M = 4;
 

@@ -26,7 +26,7 @@ export type Extract = {
   bbox: Bbox;
   nodes: { id: number[]; lat: number[]; lon: number[] };
   ways: Array<{ i: number; r: number[]; t: Tags }>;
-  /** Absent in extracts written before v1.9. */
+  /** Optional for extracts that contain no building pass. */
   buildings?: { lat: number[]; lon: number[] };
 };
 
@@ -43,7 +43,7 @@ export type CityConfig = {
   carlessShare: number | null;
   carlessSource: string | null;
   popMode: 'roadlength' | 'raster';
-  /** 'auto' = by class; a list of names/refs = by road name (§4 step 7, v1.4). */
+  /** 'auto' = by class; a list of names/refs = by road name (§4 step 7). */
   exits: 'auto' | string[];
   smallCity: boolean;
 };
@@ -157,17 +157,9 @@ export function lanes(tags: Tags, side: 'forward' | 'backward'): number {
 const roadKey = (t: Tags): string | null => (t.name === undefined ? null : `${t.name}\u0000${t.highway ?? ''}`);
 
 /**
- * Fills the lane count OSM left off a segment from the other segments of the same road
- * (§4 step 4, v1.4). A street does not change width where the mapper stopped typing.
- *
- * Skyway in Paradise is the case that forced this: its undivided blocks carry `lanes=4`, so
- * two per direction, while the divided carriageways that actually leave town carry no lane
- * tag at all and fell through to the class default of one. The model then read two lanes on
- * one block of a street and one on the next. Nothing is invented here -- the number comes
- * from OSM's own tags on that same road, an explicit tag is never overridden, and a road
- * that states nothing anywhere still gets the class default.
- *
- * The median, not the maximum: one mistagged segment should not widen a whole road.
+ * Fills a missing lane count from the median tagged segment of the same road and class
+ * (§4 step 4). Explicit tags win; a road with no tags uses the class default. The median
+ * prevents one mistagged segment from widening the whole road.
  */
 export function inferLanes(runs: Run[]): (tags: Tags, side: 'forward' | 'backward') => number {
   const seen = new Map<string, number[]>();

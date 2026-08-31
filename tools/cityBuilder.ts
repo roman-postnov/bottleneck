@@ -1,6 +1,4 @@
-// The single writer of the city.bin format (§3), shared by the synthetic generator (§4bis)
-// and the OSM preprocessor (§4). Two independent writers drift apart silently, and they
-// drift on the day the format is first amended after the freeze.
+// The single city.bin writer (§3), shared by the synthetic generator and OSM preprocessor.
 
 import {
   FLAG,

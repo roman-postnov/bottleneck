@@ -9,13 +9,7 @@ export const MOVING = 1;
 export const ARRIVED = 2;
 export const STUCK = 3;
 
-/**
- * Hops recorded per car, as a PREFIX -- not a ring. The encoding is a CSR offset, which is
- * relative to the node the car was standing at, so a route replays only from a known start:
- * drop the beginning and the chain cannot be walked at all. 192 hops at San Francisco's mean
- * edge of 94 m is about 18 km, longer than any route in these cities, so the prefix is the
- * whole route in practice. A car that outruns it keeps its first 18 km and stops recording.
- */
+/** Route prefix length; CSR offsets require replay from the known starting node. */
 const MAX_HOPS = 192;
 const ROUTE_BYTES = MAX_HOPS >> 1;
 
@@ -27,27 +21,11 @@ const ROUTE_BYTES = MAX_HOPS >> 1;
  */
 const MAX_HOPS_PER_FRAME = 8;
 
-/**
- * Where a parked car stands. Demand lives on NODES, and a node is a junction, so a car parked
- * at its node stands in the middle of a crossroads. The city file carries OSM building
- * centroids per node (§3.2), and that is the first choice: a car waits at a house.
- *
- * The offset off the centroid is not a driveway -- we have centroids, not outlines, and do not
- * know which side the street is on. It is there so several cars at one house do not land on
- * the same pixel.
- */
+/** Spread cars around a building centroid; the data has no outlines or driveway locations. */
 const YARD_HOUSE_MIN_M = 3;
 const YARD_HOUSE_SPAN_M = 5;
 
-/**
- * How many cars one mapped building may hold before the rest go back to the street.
- *
- * OSM coverage is not uniform and the gap is not small: San Francisco has a building for
- * every 5 residents, Paradise one for every 24 -- four fifths of its demand sits at nodes with
- * no building drawn at all. Piling forty cars onto the one house that happens to be mapped
- * says people live there, which is false; the street they are on is the weaker claim and the
- * true one. Four is already more than a household owns.
- */
+/** Cap cars per mapped building because OSM building coverage is uneven. */
 const YARD_CARS_PER_HOUSE = 4;
 
 /**
@@ -125,16 +103,7 @@ export type TracerField = {
   /** [E] cumulative moveOut, accumulated from the per-frame deltas. Float64: the sum reaches
    *  ~1e5 on an exit edge, where a Float32 step is already 0.008 of a vehicle. */
   servedCum: Float64Array;
-  /**
-   * [E] the FIFO number the next car onto this edge gets. Reset every frame to the model's own
-   * cumulative arrivals as of the previous frame, then incremented per entry, so the cars that
-   * arrive during a frame take the numbers the model's arrivals took.
-   *
-   * A per-pass counter added on top of n[e] does NOT work, and this is what it costs: n[e]
-   * already counts the cars that arrived during the frame, so adding a sequence number on top
-   * charges the fifth car onto an edge four extra vehicles of delay. Measured: 16% more dots on
-   * the network than the model had cars.
-   */
+  /** [E] FIFO arrival number for the next tracer entering each edge. */
   arrCum: Float64Array;
   /** [E] live count, against which n[e] is checked -- the self-test of the whole scheme. */
   dotsOn: Int32Array;
@@ -186,18 +155,9 @@ export type TracerField = {
 
   /** Per-node spawn ordinal, so a dot's seed comes from the model and not from frame timing. */
   ordinal: Uint32Array;
-  /**
-   * Cumulative vehicles the model has released from each node's driveway. A running remainder
-   * instead of this leaves under a car parked at every node forever -- which is nothing on one
-   * node and 9233 nodes' worth on San Francisco, so a percent of the fleet would never leave.
-   */
+  /** Cumulative model departures per source node. */
   depCum: Float64Array;
-  /**
-   * A fixed per-node offset in [0, 1), so a node owing 0.4 of a departure releases a car four
-   * times in ten rather than never. Rounding per node instead loses everything below half a car
-   * at every node at once: nine minutes into Mercer Island the model has released 42 cars
-   * across 1033 driveways, and rounding showed none of them moving at all.
-   */
+  /** Fixed per-node offset used to dither fractional departures into whole tracers. */
   dither: Float32Array;
   /** [V] the demand the yards were built from, to flush a node the model has emptied. */
   demand0: Float32Array;
@@ -257,9 +217,7 @@ function reciprocals(f: TracerField): void {
 
 export function createTracers(init: TracerInit): TracerField {
   const { E, V } = init;
-  // Every car that will ever exist: demand is fixed at configure time and nothing is created
-  // mid-run, so a slot is never reused. That is what makes a slot a stable car id and keeps
-  // the route of a car that already got out readable to the end of the run.
+  // Demand is fixed at configuration, so slots remain stable car IDs for the whole run.
   const cap = Math.ceil(init.totalVeh) + init.demandNodes.length + 1;
 
   const f: TracerField = {
@@ -342,11 +300,7 @@ export function createTracers(init: TracerInit): TracerField {
   return f;
 }
 
-/**
- * A car with nowhere to go. The model keeps these vehicles where they are to the end of the run
- * and reports them as metrics.stranded, so the dot stops and stays: no teleport, no random road,
- * no quiet disappearance. `e < 0` means it never got out of its own driveway.
- */
+/** Keep a stranded car where it stopped; e < 0 means it never left its driveway. */
 function markStuck(f: TracerField, slot: number, e: number): void {
   f.dState[slot] = STUCK;
   const at = f.stuckCount++;
@@ -440,8 +394,6 @@ function fillYards(f: TracerField, demand0: Float32Array, seed: number): void {
       dEdge[slot] = 0;
       f.dState[slot] = PARKED;
       f.dArriveT[slot] = -1;
-      // Deterministic throughout: §10 keeps Math.random out of the model and there is no reason
-      // to let it in here.
       if (j < atHouses) {
         const b = bb + (j % m);
         const ang = (key & 0xffff) * (6.283185307179586 / 65536);
@@ -466,10 +418,7 @@ function fillYards(f: TracerField, demand0: Float32Array, seed: number): void {
       const jitter = ((key >>> 8) & 0xff) / 256 - 0.5;
       let dist = ((row + 0.5 + jitter * 0.6) / rows) * span;
       if (dist < 1) dist = 1;
-      // Both kerbs, so a street reads as houses down each side rather than a single file. The
-      // polyline is already one lane right of the centreline (§13.1), so the near kerb is `base`
-      // further right and the FAR one is two lanes plus base back to the left -- a plain +/-base
-      // would stand half the street's cars on the oncoming carriageway.
+      // Account for the directed polyline's lane offset when placing cars on both kerbs (§13.1).
       const base = YARD_LATERAL_MIN_M + (((key >>> 16) & 0xff) / 256) * YARD_LATERAL_SPAN_M;
       const lateral = key & 1 ? -(2 * LANE_OFFSET_M + base) : base;
       alongEdge(f, e, dist, lateral, yardPos, slot * 2);
@@ -625,10 +574,7 @@ export function onFrame(
   // Anchor first, on the PREVIOUS frame's servedCum and n: their sum is the model's cumulative
   // arrivals as of the last frame, which is exactly the number the next arrival follows.
   for (let e = 0; e < f.E; e++) {
-    // Assigned, not raised. A max() here is a ratchet: every dot entry bumps arrCum by one, so
-    // any frame where the dots arrive faster than the model leaves the counter permanently
-    // high, every later car is charged the drift, and the network fills with dots that cannot
-    // leave. Measured that way, the worst edge ran 148 dots over its n[e].
+    // Assign from model counts; taking max would preserve tracer drift across frames.
     arrCum[e] = servedCum[e] + f.n[e];
     servedCum[e] += outflow[e];
   }
@@ -640,11 +586,7 @@ export function onFrame(
     const v = demandNodes[i];
     const d = departed[v];
     if (d !== 0) depCum[v] += d;
-    // Chase the model's own cumulative count rather than accumulating a remainder: the error
-    // then stays under a car per node instead of stranding a fraction of one at every node for
-    // the rest of the run. Dithered so a fractional debt is paid at the right rate across the
-    // city, and flushed outright once the model has released the whole yard -- the dither's own
-    // leftover would otherwise keep a car or two parked to the end.
+    // Follow the model's cumulative count, dither fractions, and flush when the yard is empty.
     const want = depCum[v] >= demand0[v] - 1e-3 ? yardEnd[v] - yardBegin[v] : Math.floor(depCum[v] + dither[v]);
     for (let have = yardNext[v] - yardBegin[v]; have < want; have++) {
       if (!depart(f, v, simT)) break;
@@ -828,7 +770,6 @@ export function carPosition(f: TracerField, slot: number): [number, number] | nu
   return [x0 + (f.vertsM[k * 2] - x0) * t, y0 + (f.vertsM[k * 2 + 1] - y0) * t];
 }
 
-/** max |dotsOn[e] - n[e]|: the self-check that says whether the Newell wiring is right. */
 /** What a caller outside this module may know about one car. */
 export type CarSnapshot = {
   state: number;
