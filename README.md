@@ -132,6 +132,11 @@ format enforce the architectural boundaries.
 | Offline data pipeline | Python, pyosmium, TypeScript |
 | Quality | TypeScript strict checks, Biome, Vitest |
 | Hosting and delivery | GitHub Actions, GitHub Pages |
+| AI-assisted development | OpenAI Codex with GPT-5.6 Sol; Claude Code with Claude Opus 5 |
+
+OpenAI Codex with GPT-5.6 Sol and Claude Code with Claude Opus 5 were used for implementation,
+code review, testing, and documentation. Bottleneck's traffic engine is a deterministic
+mathematical model rather than a generative AI model.
 
 The deployed application is a static site. The city data ships with it, and the simulation runs
 locally in the user's browser; no application server is required.
