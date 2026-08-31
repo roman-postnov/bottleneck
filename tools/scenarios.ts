@@ -172,5 +172,19 @@ write('sf-bridge-closed', 'San Francisco — Bay Bridge closed', {
 // earlier -- which is a scenario parameter, not an edit to the network.
 write('keys-baseline', 'Florida Keys — one road out, 180 km of it', defaultScenario('keys'));
 
+const presetOrder = [
+  'sf-baseline',
+  'sf-bridge-closed',
+  'mercer-baseline',
+  'keys-baseline',
+  'paradise-2018',
+  'paradise-no-contraflow',
+  'paradise-open-network',
+  'paradise-plus-lane',
+];
+const presetRank = new Map(presetOrder.map((id, i) => [id, i]));
+index.sort(
+  (a, b) => (presetRank.get(a.id) ?? Number.POSITIVE_INFINITY) - (presetRank.get(b.id) ?? Number.POSITIVE_INFINITY),
+);
 writeFileSync('public/scenarios/index.json', `${JSON.stringify(index, null, 2)}\n`);
 console.log(`index.json: ${index.length} presets`);

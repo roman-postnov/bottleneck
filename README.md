@@ -32,14 +32,14 @@ small set of roads that controls it.
 ## See it in 60 seconds
 
 1. Open the [live demo](https://roman-postnov.github.io/bottleneck/).
-2. Choose **Paradise, 8 Nov 2018 — as it happened**.
-3. Press **Play** and enable **show the bottleneck**.
-4. Click a road, then try **Close**, **+1 lane**, or **Contraflow**.
-5. Watch the clearance time, queue, outbound flow, and highlighted bottleneck change together.
-6. Use **Copy link** to share the exact scenario.
+2. San Francisco opens first; press **Play** and enable **show the bottleneck**.
+3. Watch individual cars, queues, spillback, and the clearance curve evolve together.
+4. Click a road to inspect its capacity and load, or a car to follow its route out.
+5. Switch to **Mercer Island** and the **Florida Keys** to see how network shape changes the result.
+6. Use **Copy link** to share any exact scenario.
 
-The change is applied at the simulated minute when it happens, so an intervention can be tested
-as part of the event rather than only before it starts.
+Every run is deterministic. Interventions are applied at the simulated minute when they happen,
+so a shared link reproduces both the inputs and the timing of the decision.
 
 ## What the demo makes visible
 
@@ -55,19 +55,21 @@ as part of the event rather than only before it starts.
 
 | Case | Why it matters |
 |---|---|
-| **Paradise, California** | The Camp Fire case: timed closures, four arterial exits, and a direct comparison with NIST's evacuation study. |
+| **San Francisco, California** | A large network with alternative corridors, bridges, and non-obvious spare capacity. |
 | **Mercer Island, Washington** | An island network where I-90 is the decisive way out. |
 | **Florida Keys** | A long, linear chain of islands where a dominant highway controls the result. |
-| **San Francisco, California** | A large network with alternative corridors, bridges, and non-obvious spare capacity. |
+| **Paradise, California** | A documented historical case with timed closures, contraflow, and four arterial exits. |
 
 A few results from the built-in scenarios:
 
-- In **Paradise**, the minimum cut identifies the four escape arteries and gives the network a
-  5,940 vehicles-per-hour ceiling under the documented scenario.
 - In **San Francisco**, the baseline run reaches T90 in 10 h 14 min; closing the Bay Bridge
   adds 2 h 05 min.
-- In the **Florida Keys**, the model makes the fragility of a long, nearly linear network
-  visible without hiding the assumptions behind it.
+- On **Mercer Island**, the baseline reaches T90 in 2 h 49 min and identifies I-90 as the
+  decisive way out.
+- In the **Florida Keys**, the baseline reaches T90 in 20 h 14 min, making the fragility of a
+  180 km linear network visible.
+- In **Paradise**, the historical scenarios provide an additional comparison against the
+  documented Camp Fire road network and closure timeline.
 
 These are scenario results, not emergency forecasts. The project keeps its assumptions and
 known misses explicit instead of presenting one run as a prediction.

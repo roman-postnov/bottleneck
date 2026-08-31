@@ -5,6 +5,7 @@
 import { decodeScenario, defaultScenario, encodeScenario, normalizeScenario } from '../core/scenario.ts';
 import type { CityMeta, Edit, Scenario } from '../core/types.ts';
 import type { FrameMessage, ReadyMessage, WorkerToMain } from '../worker/protocol.ts';
+import { initialCityId, orderCities } from './catalogue.ts';
 import { SimClient } from './simClient.ts';
 import { getState, type PresetInfo, setState } from './state.ts';
 
@@ -150,7 +151,7 @@ export async function boot(): Promise<void> {
   try {
     const res = await fetch(assetUrl('cities/index.json'));
     if (!res.ok) throw new Error(`cities/index.json: ${res.status}`);
-    const cities = (await res.json()) as CityMeta[];
+    const cities = orderCities((await res.json()) as CityMeta[]);
     setState({ cities, presets: await presetIndex() });
     const query = new URLSearchParams(location.search);
 
@@ -170,7 +171,7 @@ export async function boot(): Promise<void> {
       return;
     }
 
-    const first = query.get('city') ?? cities[0]?.id;
+    const first = initialCityId(cities, query.get('city'));
     if (first) selectCity(first);
   } catch (e) {
     reportError(e);
