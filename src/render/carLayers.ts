@@ -174,7 +174,8 @@ export function followLayer(
 /**
  * The lon/lat polyline of a route, built by concatenating the edges it used -- the same
  * concatenation cutPaths does for the min-cut. A route is contiguous by construction, so this
- * is one path; it is returned wrapped because PathLayer wants a list.
+ * is one path; it is returned wrapped because PathLayer wants a list. The joins carry a step of up
+ * to two lanes, which jointRounded swallows at the trail's width.
  */
 export function edgePaths(view: GraphView, edges: ArrayLike<number>): [number, number][][] {
   const path: [number, number][] = [];
@@ -182,7 +183,8 @@ export function edgePaths(view: GraphView, edges: ArrayLike<number>): [number, n
     const e = edges[i];
     for (let k = view.startIndices[e]; k < view.startIndices[e + 1]; k++) {
       const pt: [number, number] = [view.positions[k * 2], view.positions[k * 2 + 1]];
-      // Consecutive edges share a node, so the vertex at the join arrives twice.
+      // Two edges meeting at a node used to land on the same vertex twice. They no longer do --
+      // each is offset to its own right (§13.1) -- but a route may still repeat a coordinate.
       const last = path[path.length - 1];
       if (!last || last[0] !== pt[0] || last[1] !== pt[1]) path.push(pt);
     }

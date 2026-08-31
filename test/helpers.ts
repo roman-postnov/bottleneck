@@ -22,6 +22,11 @@ export function publicCity(id: string): City {
   return parseCity(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer);
 }
 
+/** The sidecar §5 metadata the app fetches beside the .bin; `center` is [lat, lon]. */
+export function publicCityMeta(id: string): { center: [lat: number, lon: number] } {
+  return JSON.parse(readFileSync(new URL(`../public/cities/${id}.json`, import.meta.url), 'utf8'));
+}
+
 type ScenarioPatch = {
   demand?: Partial<Scenario['demand']>;
   supply?: Partial<Scenario['supply']>;

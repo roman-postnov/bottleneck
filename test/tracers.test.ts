@@ -11,9 +11,7 @@ import {
   createTracers,
   cumulative,
   dotError,
-  M_PER_DEG_LAT,
   MOVING,
-  mPerDegLon,
   onFrame,
   PARKED,
   ROUTE_MAX_HOPS,
@@ -24,8 +22,8 @@ import {
   writeParked,
   writePositions,
 } from '../src/render/tracers.ts';
+import { LANE_OFFSET_M } from '../src/shared/geo.ts';
 import { mix32 } from '../src/shared/rng.ts';
-import { M_PER_DEG_LAT as GEOM_M_PER_DEG_LAT, mPerDegLon as geomMPerDegLon } from '../src/worker/geometry.ts';
 
 /** The CSR pair the ready message carries. An empty list is a city whose file predates §3.2's
  *  building section, which is every committed fixture. */
@@ -127,16 +125,10 @@ function departOne(f: TracerField, v: number, simT: number, n?: Float32Array): v
   frame(f, simT, { departed, n });
 }
 
-describe('§15: src/render and src/worker share the projection rather than copy it', () => {
-  it('the projection is the same binding on both sides of the boundary', () => {
-    // These were two copies pinned together by this test. They are now one module under
-    // src/shared; the assertion stays so that re-introducing a copy goes red.
-    expect(M_PER_DEG_LAT).toBe(GEOM_M_PER_DEG_LAT);
-    for (const lat of [0, 24.55, 37.76, 39.76, 47.57, 60, 89.9, -33.9]) {
-      expect(mPerDegLon(lat), `lat ${lat}`).toBe(geomMPerDegLon(lat));
-    }
-  });
-
+describe('§15: src/render and src/worker share their leaf modules rather than copy them', () => {
+  // The projection used to be two copies of a pair of constants pinned to each other here. It is
+  // now one module under src/shared, pinned to deck.gl itself in test/geo.test.ts -- which is the
+  // pin that was missing: both copies agreed and both were wrong.
   it('the stateless mixer agrees with the first output of the stateful one', () => {
     for (const seed of [0, 1, 42, 12345, -7, 0x7fffffff, 0x9e3779b9 | 0]) {
       expect(mix32(seed), `seed ${seed}`).toBe(splitmix32(seed)());
@@ -170,6 +162,7 @@ describe('yards: one dot per vehicle, before anyone moves', () => {
     const f = createTracers(init);
     writeParked(f);
     const xs: number[] = [];
+    const kerbs: number[] = [];
     const seen = new Set<string>();
     for (let i = 0; i < f.parkedCount; i++) {
       const x = f.parkedPos[i * 2];
@@ -179,10 +172,18 @@ describe('yards: one dot per vehicle, before anyone moves', () => {
       // Down the near half of the street, never past it into the next node's frontage.
       expect(x).toBeGreaterThanOrEqual(0);
       expect(x).toBeLessThanOrEqual(140);
-      // Off the carriageway, on one kerb or the other.
-      expect(Math.abs(y)).toBeGreaterThanOrEqual(5);
-      expect(Math.abs(y)).toBeLessThanOrEqual(12);
+      // Off the carriageway, on one kerb or the other. fillYards measures from a polyline that is
+      // already one lane right of the centreline (§13.1), and this fixture's polyline is a bare
+      // centreline, so the centreline it is working to sits LANE_OFFSET_M to its left.
+      kerbs.push(y - LANE_OFFSET_M);
     }
+    for (const k of kerbs) {
+      expect(Math.abs(k)).toBeGreaterThanOrEqual(5 + LANE_OFFSET_M);
+      expect(Math.abs(k)).toBeLessThanOrEqual(12 + LANE_OFFSET_M);
+    }
+    // Both kerbs used, so a street reads as houses down each side.
+    expect(kerbs.some((k) => k > 0)).toBe(true);
+    expect(kerbs.some((k) => k < 0)).toBe(true);
     expect(seen.size).toBe(50);
     // Strung out along the street rather than heaped at the junction: a disc of 30 m would put
     // every one of them inside the first 30 m.
@@ -223,7 +224,8 @@ describe('yards: one dot per vehicle, before anyone moves', () => {
     for (let i = 0; i < 10; i++) {
       const d = Math.hypot(f.parkedPos[i * 2] - 40, f.parkedPos[i * 2 + 1] - 60);
       if (d <= 8) atHouse++;
-      else expect(Math.abs(f.parkedPos[i * 2 + 1])).toBeLessThanOrEqual(12); // on a kerb
+      // On a kerb, measured from the centreline the offset polyline implies (§13.1).
+      else expect(Math.abs(f.parkedPos[i * 2 + 1] - LANE_OFFSET_M)).toBeLessThanOrEqual(12 + LANE_OFFSET_M);
     }
     expect(atHouse).toBe(4);
   });

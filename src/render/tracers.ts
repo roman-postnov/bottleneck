@@ -8,10 +8,8 @@
 // message as data. The mixer and the projection it shares with the worker live in src/shared,
 // which is a leaf and therefore on the legal side of that line.
 
+import { LANE_OFFSET_M } from '../shared/geo.ts';
 import { mix32 } from '../shared/rng.ts';
-
-// biome-ignore lint/performance/noBarrelFile: §16.6 -- §13 declares the projection as part of this module's API; only its source moved
-export { M_PER_DEG_LAT, mPerDegLon, toMeterOffsets } from '../shared/geo.ts';
 
 export const PARKED = 0;
 export const MOVING = 1;
@@ -395,8 +393,9 @@ function edgeBounds(f: TracerField): void {
 }
 
 /**
- * Writes the point `dist` metres along edge `e`, pushed `lateral` metres to one side of the
- * carriageway. Walks the polyline the same way writePositions does; only ever runs at setup.
+ * Writes the point `dist` metres along edge `e`, pushed `lateral` metres to the RIGHT of the
+ * direction of travel -- the same sense as laneOffset in the worker, so that "right" means one
+ * thing. Walks the polyline the same way writePositions does; only ever runs at setup.
  */
 function alongEdge(f: TracerField, e: number, dist: number, lateral: number, out: Float32Array, at: number): void {
   const { startIndices, cum, vertsM } = f;
@@ -412,8 +411,8 @@ function alongEdge(f: TracerField, e: number, dist: number, lateral: number, out
   const dx = vertsM[k * 2] - x0;
   const dy = vertsM[k * 2 + 1] - y0;
   const len = Math.sqrt(dx * dx + dy * dy) || 1;
-  out[at] = x0 + dx * t + (-dy / len) * lateral;
-  out[at + 1] = y0 + dy * t + (dx / len) * lateral;
+  out[at] = x0 + dx * t + (dy / len) * lateral;
+  out[at + 1] = y0 + dy * t + (-dx / len) * lateral;
 }
 
 /** One parked car per vehicle of demand, in its node's driveway, at t = 0. */
@@ -474,9 +473,12 @@ function fillYards(f: TracerField, demand0: Float32Array, seed: number): void {
       const jitter = ((key >>> 8) & 0xff) / 256 - 0.5;
       let dist = ((row + 0.5 + jitter * 0.6) / rows) * span;
       if (dist < 1) dist = 1;
-      // Both kerbs, so a street reads as houses down each side rather than a single file.
-      const side = key & 1 ? 1 : -1;
-      const lateral = side * (YARD_LATERAL_MIN_M + (((key >>> 16) & 0xff) / 256) * YARD_LATERAL_SPAN_M);
+      // Both kerbs, so a street reads as houses down each side rather than a single file. The
+      // polyline is already one lane right of the centreline (§13.1), so the near kerb is `base`
+      // further right and the FAR one is two lanes plus base back to the left -- a plain +/-base
+      // would stand half the street's cars on the oncoming carriageway.
+      const base = YARD_LATERAL_MIN_M + (((key >>> 16) & 0xff) / 256) * YARD_LATERAL_SPAN_M;
+      const lateral = key & 1 ? -(2 * LANE_OFFSET_M + base) : base;
       alongEdge(f, e, dist, lateral, yardPos, slot * 2);
     }
     f.yardEnd[v] = slot;

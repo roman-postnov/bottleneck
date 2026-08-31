@@ -108,6 +108,28 @@ describe('§15: layers do not reach across', () => {
   });
 });
 
+/**
+ * The projection used to be a pair of constants copied into two modules and pinned to each other
+ * by a test, which stayed green while both copies were wrong (§13.2). One module owns it now, and
+ * the assertion is that no second copy comes back -- named by the numbers, so it catches a copy
+ * under any name.
+ */
+describe('§13.2: the projection lives in exactly one module', () => {
+  it('the equirectangular constants are gone from src', () => {
+    for (const f of sources('src')) {
+      expect(stripComments(read(f)), f).not.toMatch(/111320|110540/);
+    }
+  });
+
+  it('deck.gl’s constants appear only in src/shared/geo.ts', () => {
+    for (const f of sources('src')) {
+      if (f === 'src/shared/geo.ts') continue;
+      expect(stripComments(read(f)), f).not.toMatch(/EARTH_CIRCUMFERENCE|TILE_SIZE|40\.03e6/);
+    }
+    expect(stripComments(read('src/shared/geo.ts'))).toMatch(/40\.03e6/);
+  });
+});
+
 describe('§16.5: nothing chatty in the hot path', () => {
   it('no console.log in the tick', () => {
     for (const f of ['src/core/sim.ts', 'src/core/nodeModel.ts', 'src/core/mobilization.ts']) {

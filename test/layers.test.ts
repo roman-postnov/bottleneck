@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { closureLayer, contraflowLayer, createGraphView, markedPaths, paint, roadLayer } from '../src/render/layers.ts';
+import {
+  closureLayer,
+  contraflowLayer,
+  createGraphView,
+  markedPaths,
+  paint,
+  roadLayer,
+  WIDTH_EMPTY,
+} from '../src/render/layers.ts';
 import { LUT_SIZE, PALETTE } from '../src/render/palette.ts';
+import { LANE_OFFSET_M } from '../src/shared/geo.ts';
 
 function graphView() {
   return createGraphView(3, new Float64Array(12), Uint32Array.from([0, 2, 4, 6]));
@@ -81,14 +90,32 @@ describe('closed road layer', () => {
       ],
     ] as [number, number][][];
     const layer = closureLayer(paths, PALETTE.light);
-    const extensionProps = layer.props as typeof layer.props & { getDashArray: number[]; getOffset: number };
+    const extensionProps = layer.props as typeof layer.props & { getDashArray: number[] };
 
     expect(layer.id).toBe('closed-roads');
     expect(layer.props.data).toBe(paths);
     expect(layer.props.getColor).toBe(PALETTE.light.closed);
     expect(extensionProps.getDashArray).toEqual([2, 2]);
-    expect(extensionProps.getOffset).toBe(1);
     expect(layer.props.pickable).toBe(false);
+  });
+
+  it('separates the directions in the geometry, not with a shader offset', () => {
+    // The offset used to be PathStyleExtension({offset: true}) with getOffset: 1, which moved the
+    // ribbon and left the cars on the centreline. It is now LANE_OFFSET_M, baked into the polyline
+    // by the worker, and it is this number -- one lane wide, one lane over.
+    expect(LANE_OFFSET_M).toBe(WIDTH_EMPTY);
+    expect(roadLayer(graphView()).props.extensions).toEqual([]);
+
+    const paths = [
+      [
+        [10, 0],
+        [11, 0],
+      ],
+    ] as [number, number][][];
+    for (const layer of [closureLayer(paths, PALETTE.light), contraflowLayer(paths, PALETTE.light)]) {
+      const [ext] = layer.props.extensions as { opts: Record<string, unknown> }[];
+      expect(ext.opts, layer.id).toMatchObject({ dash: true, offset: false });
+    }
   });
 
   it('draws contraflow with its own colour and longer dash', () => {

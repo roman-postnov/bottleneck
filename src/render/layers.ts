@@ -6,18 +6,19 @@ import { PathLayer } from '@deck.gl/layers';
 import { LUT_SIZE, type Palette } from './palette.ts';
 
 /**
- * Every path is drawn one width to the right of its own direction of travel. Twin edges run
- * opposite ways, so their right-hand sides are opposite sides of the street and the two
- * directions separate on their own -- without this a two-way street is two lines on top of
- * each other and which one you see is an accident of edge order.
+ * The separation of the two directions is NOT done here. It is LANE_OFFSET_M, baked into the
+ * polyline in src/worker/geometry.ts, so the line, the cars on it, the trail and these dashes all
+ * read one geometry (§13.1). PathStyleExtension({offset: true}) used to do it, and it moved the
+ * ribbon without moving the cars; worse, its offset is a CLAMPED-PIXEL width (widthMinPixels
+ * applies before DECKGL_FILTER_SIZE), so the displacement was ~0.7 px -- about 21 m of ground --
+ * at z12 and ~4 m at z18, and the mismatch grew as you zoomed out.
  */
-const OFFSET = 1;
-const offsetOnly = new PathStyleExtension({ offset: true });
-const dashedOffset = new PathStyleExtension({ offset: true, dash: true });
+const dashed = new PathStyleExtension({ dash: true });
 
 /** Metres, before deck.gl's pixel clamping. Colour carries the load; width only reinforces it
- *  slightly, so a stopped road does not obscure its neighbours or the cars drawn over it. */
-const WIDTH_EMPTY = 4;
+ *  slightly, so a stopped road does not obscure its neighbours or the cars drawn over it.
+ *  Exported because LANE_OFFSET_M is this number: one lane wide, one lane over. */
+export const WIDTH_EMPTY = 4;
 const WIDTH_JAMMED = WIDTH_EMPTY * 1.2;
 
 export type GraphView = {
@@ -118,8 +119,6 @@ export function roadLayer(view: GraphView): PathLayer {
     widthMaxPixels: 8,
     capRounded: true,
     jointRounded: true,
-    getOffset: OFFSET,
-    extensions: [offsetOnly],
     updateTriggers: { getColor: view.revision, getWidth: view.revision },
   });
 }
@@ -167,8 +166,7 @@ export function closureLayer(paths: MarkedPaths, palette: Palette): PathLayer {
     widthMaxPixels: 12,
     getDashArray: [2, 2],
     dashJustified: true,
-    getOffset: OFFSET,
-    extensions: [dashedOffset],
+    extensions: [dashed],
     pickable: false,
     parameters: { depthCompare: 'always' },
   });
@@ -187,8 +185,7 @@ export function contraflowLayer(paths: MarkedPaths, palette: Palette): PathLayer
     widthMaxPixels: 12,
     getDashArray: [8, 2],
     dashJustified: true,
-    getOffset: OFFSET,
-    extensions: [dashedOffset],
+    extensions: [dashed],
     pickable: false,
     parameters: { depthCompare: 'always' },
   });
@@ -215,8 +212,7 @@ export function cutLayer(paths: CutPaths, palette: Palette, pulse: number): Path
     // A dash so the cut is still the cut in a screenshot, where the pulse says nothing.
     getDashArray: [4, 3],
     dashJustified: true,
-    getOffset: OFFSET,
-    extensions: [dashedOffset],
+    extensions: [dashed],
     opacity: 0.55 + 0.45 * (pulse - 1),
     parameters: { depthCompare: 'always' },
   });

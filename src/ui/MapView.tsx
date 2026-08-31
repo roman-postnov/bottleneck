@@ -36,9 +36,7 @@ import {
   cumulative,
   dotError,
   drawnCounts,
-  M_PER_DEG_LAT,
   MOVING,
-  mPerDegLon,
   onFrame,
   PARKED,
   pickedSlot,
@@ -46,10 +44,10 @@ import {
   STUCK,
   setNetwork,
   type TracerField,
-  toMeterOffsets,
   writeParked,
   writePositions,
 } from '../render/tracers.ts';
+import { type MeterOffsets, meterOffsets, projectX, projectY, toMeterOffsets } from '../shared/geo.ts';
 
 const PULSE_MS = 1400;
 /** The panel is React; it gets the followed car on the same throttle as the clock. */
@@ -57,6 +55,8 @@ const FOLLOW_INTERVAL_MS = 200;
 
 type Scene = {
   view: GraphView;
+  /** deck.gl's metre space at meta.center, so the cull agrees with the dots it is culling. */
+  proj: MeterOffsets;
   storage: Float32Array;
   cut: CutPaths;
   closures: MarkedPaths;
@@ -133,7 +133,7 @@ export function MapView(): React.ReactElement {
         t = performance.now();
         // The cull is worth having at the zooms where a dot means something; at z12 the whole
         // city is in the window anyway and the bounds test just costs an edge compare.
-        writePositions(s.field, viewBounds(handle, s.origin));
+        writePositions(s.field, viewBounds(handle, s.proj));
         cost.place = performance.now() - t;
 
         if (opts.current.showParked) {
@@ -207,6 +207,7 @@ export function MapView(): React.ReactElement {
         setNetwork(field, msg.storage, msg.blocked, msg.ttSec);
         sceneRef.current = {
           view,
+          proj: meterOffsets(msg.meta.center),
           storage: msg.storage,
           cut: cutPaths(view, msg.cutEdges),
           closures: markedPaths(view, msg.blocked, msg.contraflow),
@@ -264,20 +265,17 @@ export function MapView(): React.ReactElement {
   return <div className="map" ref={hostRef} />;
 }
 
-function viewBounds(
-  handle: MapHandle,
-  origin: [lon: number, lat: number],
-): { x0: number; y0: number; x1: number; y1: number } {
+function viewBounds(handle: MapHandle, p: MeterOffsets): { x0: number; y0: number; x1: number; y1: number } {
   const b = handle.map.getBounds();
-  const mPerLon = mPerDegLon(origin[1]);
+  const yS = projectY(p, b.getSouth());
+  const yN = projectY(p, b.getNorth());
+  // Four corners, not two: deck.gl's second-order term makes x a function of y, so the window is
+  // not an axis-aligned box in metre offsets.
+  const xW = Math.min(projectX(p, b.getWest(), yS), projectX(p, b.getWest(), yN));
+  const xE = Math.max(projectX(p, b.getEast(), yS), projectX(p, b.getEast(), yN));
   // A margin, so a car does not pop in at the edge of the window.
   const pad = 200;
-  return {
-    x0: (b.getWest() - origin[0]) * mPerLon - pad,
-    y0: (b.getSouth() - origin[1]) * M_PER_DEG_LAT - pad,
-    x1: (b.getEast() - origin[0]) * mPerLon + pad,
-    y1: (b.getNorth() - origin[1]) * M_PER_DEG_LAT + pad,
-  };
+  return { x0: xW - pad, y0: yS - pad, x1: xE + pad, y1: yN + pad };
 }
 
 /** A click on a car follows it; a click on a road probes the road, as it always did. */

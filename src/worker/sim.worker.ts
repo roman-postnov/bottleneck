@@ -69,7 +69,7 @@ function configure(next: Scenario): void {
   nextCurveAt = 0;
   finishedSent = false;
 
-  const geo = buildEdgeGeometry(city);
+  const geo = buildEdgeGeometry(city, (city.meta as ReadyMeta).center);
   const storage = Float32Array.from(s.storage);
   const blocked = Uint8Array.from(s.blocked);
   const contraflow = Uint8Array.from(s.contraflow);

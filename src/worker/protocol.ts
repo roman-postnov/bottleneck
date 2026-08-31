@@ -30,7 +30,8 @@ export type ReadyMessage = {
   blocked: Uint8Array;
   /** [E] subset of blocked whose cause is contraflow rather than a road closure. */
   contraflow: Uint8Array;
-  /** Flattened [lon, lat] pairs for every vertex of every edge polyline (§13). */
+  /** Flattened [lon, lat] pairs for every vertex of every edge polyline, as DRAWN: already one
+   *  lane right of the centreline (§13.1). The centreline stays in city.bin. */
   positions: Float64Array;
   /** [E+1] vertex index where each edge's polyline starts. Uint32, never Uint16 (§13.1). */
   startIndices: Uint32Array;
