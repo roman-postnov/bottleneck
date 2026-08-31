@@ -251,7 +251,16 @@ export function pause(): void {
 }
 
 export function reset(): void {
-  setState({ status: 'ready', curve: [], metrics: null, probe: null });
+  // Zeroed here rather than waiting for the `ready` reply: the old elapsed time and evacuation
+  // count would otherwise sit on screen for the length of the round trip.
+  const totalVeh = getState().ready?.totalVeh ?? 0;
+  setState({
+    status: 'ready',
+    curve: [],
+    metrics: null,
+    probe: null,
+    clock: { t: 0, evacuated: 0, enRoute: 0, notDeparted: totalVeh, actualX: 0 },
+  });
   client.reset();
 }
 

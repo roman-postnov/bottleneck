@@ -79,7 +79,7 @@ export function Controls(): React.ReactElement {
         <button type="button" className="primary" onClick={running ? pause : play} disabled={status === 'loading'}>
           {running ? 'Pause' : 'Play'}
         </button>
-        <button type="button" onClick={reset}>
+        <button type="button" onClick={reset} disabled={status === 'loading'}>
           Reset
         </button>
         <span className="clock">{elapsed(clock.t)}</span>

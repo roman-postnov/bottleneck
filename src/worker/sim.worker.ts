@@ -50,6 +50,10 @@ function fail(where: string, err: unknown): void {
 
 function configure(next: Scenario): void {
   if (!city) throw new Error('configure before init');
+  // Rebuilding the sim under a live `step` chain is the reset bug: the loop re-reads `sim`
+  // every turn, so it would pick up the fresh state and keep running behind a stopped UI.
+  playing = false;
+  stopAt = Number.POSITIVE_INFINITY;
   scenario = next;
   const params = resolveParams(next);
   const s = createSim(city, params, next.edits);
@@ -240,9 +244,27 @@ function finished(s: SimState): boolean {
   return s.t >= stopAt || s.t >= s.params.horizonSec || (s.totalVeh > 0 && s.evacuated >= s.totalVeh * (1 - 1e-6));
 }
 
+/** The end of a run, from wherever it is noticed: the loop's own tail, or a `play` on a run
+ *  that had already ended. */
+function halt(s: SimState, ticks: number, wallMs: number): void {
+  playing = false;
+  emitFrame(ticks, wallMs, true);
+  flushCurve();
+  if (!finishedSent) {
+    finishedSent = true;
+    post({ type: 'done', metrics: metrics(s) as Metrics });
+  }
+}
+
 function step(): void {
   const s = sim;
   if (!(s && playing)) return;
+  // Checked before the clock is asked: at x1 the first turn sleeps a whole second, and a
+  // `play` on a finished run would leave the UI reading "Pause" for all of it.
+  if (finished(s)) {
+    halt(s, 0, 0);
+    return;
+  }
 
   const { want, sleepMs } = clock.plan(performance.now(), speedX);
   if (want < 1) {
@@ -273,13 +295,7 @@ function step(): void {
   emitCurve();
 
   if (finished(s)) {
-    playing = false;
-    emitFrame(ticks, wallMs, true);
-    flushCurve();
-    if (!finishedSent) {
-      finishedSent = true;
-      post({ type: 'done', metrics: metrics(s) as Metrics });
-    }
+    halt(s, ticks, wallMs);
     return;
   }
   setTimeout(step, 0);
@@ -327,6 +343,9 @@ function answerProbe(edgeId: number): void {
 
 function resume(): void {
   if (!sim || playing) return;
+  // `done` is sent once per run, so a replay of a finished one has to be allowed to send it
+  // again -- otherwise the main thread sits on 'running' over a picture that never moves.
+  finishedSent = false;
   playing = true;
   clock.restart();
   setTimeout(step, 0);
@@ -348,6 +367,8 @@ ctx.addEventListener('message', (ev) => {
       }
 
       case 'configure': {
+        // Also stopped inside configure(), but that runs behind cityReady: the run has to stop
+        // when the message lands, not when the fetch resolves.
         playing = false;
         stopAt = Number.POSITIVE_INFINITY;
         if (!cityReady) {
