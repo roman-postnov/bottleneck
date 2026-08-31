@@ -1,6 +1,4 @@
-// The worker protocol of CONTRACTS.md §8, as a discriminated union.
-// Both sides import this file, so a protocol drift is a compile error rather than a blank
-// screen thirty hours in.
+// The shared discriminated-union worker protocol (docs/CONTRACTS.md §8).
 
 import type { CityMeta, Edit, Metrics, Scenario } from '../core/types.ts';
 

@@ -1,6 +1,4 @@
-// The pacing and buffer rules of CONTRACTS.md §1.1 and §8, tested from the contract.
-// Both used to be module-level state inside sim.worker.ts and could only be exercised by
-// running a worker; neither needs one.
+// The pacing and buffer rules of docs/CONTRACTS.md §1.1 and §8.
 
 import { describe, expect, it } from 'vitest';
 import { FramePool } from '../src/worker/bufferPool.ts';

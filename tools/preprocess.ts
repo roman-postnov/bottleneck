@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Step 2 of the preprocessor, CONTRACTS.md §4 steps 2-12: intermediate JSON -> city.bin.
+// Step 2 of the preprocessor, docs/CONTRACTS.md §4 steps 2-12: intermediate JSON -> city.bin.
 //
 // Every step is an exported pure function over plain arrays, so test/preprocess.test.ts can
 // check collapsing, direction, lanes and splitting on three-node graphs instead of on a

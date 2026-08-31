@@ -1,4 +1,4 @@
-// The city.bin format and its parser. CONTRACTS.md §3, §5.
+// The city.bin format and its parser. docs/CONTRACTS.md §3, §5.
 // Format constants live here and are imported by the writer (tools/cityBuilder.ts):
 // two independent statements of the layout drift apart silently.
 

@@ -1,4 +1,4 @@
-// The drawn geometry of CONTRACTS.md §13.1: the polyline the PathLayer, the cars, the trail and
+// The drawn geometry of docs/CONTRACTS.md §13.1: the polyline the PathLayer, the cars, the trail and
 // the closure dashes all share, already one lane right of the direction of travel.
 
 import { describe, expect, it } from 'vitest';

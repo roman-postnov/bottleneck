@@ -1,4 +1,4 @@
-// The transferable frame buffers of CONTRACTS.md §8. A frame's arrays are transferred to the
+// The transferable frame buffers of docs/CONTRACTS.md §8. A frame's arrays are transferred to the
 // main thread, so the worker does not own them again until a `recycle` message hands them back.
 
 /**

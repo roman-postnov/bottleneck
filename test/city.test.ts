@@ -1,4 +1,4 @@
-// Tests for the city.bin format and loader. Written from CONTRACTS.md §3 and §5.
+// Tests for the city.bin format and loader. Written from docs/CONTRACTS.md §3 and §5.
 
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';

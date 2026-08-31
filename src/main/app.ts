@@ -178,7 +178,7 @@ export async function boot(): Promise<void> {
   }
 }
 
-/** The presets of §18 are files; without a list of them the app can only reach one by URL. */
+/** The presets of §17 are files; without a list of them the app can only reach one by URL. */
 async function presetIndex(): Promise<PresetInfo[]> {
   try {
     const r = await fetch(assetUrl('scenarios/index.json'));

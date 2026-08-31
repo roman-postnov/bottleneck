@@ -1,4 +1,4 @@
-// Load palette of CONTRACTS.md §13.2, precomputed as a lookup table.
+// Load palette of docs/CONTRACTS.md §13.2, precomputed as a lookup table.
 
 const LUT_SIZE = 256;
 

@@ -1,4 +1,4 @@
-// The bans of CONTRACTS.md §10, §15 and §16.5 that a linter cannot state.
+// The bans of docs/CONTRACTS.md §10, §15 and §16.5 that a linter cannot state.
 //
 // The import half of §15 lives in biome.jsonc, where noRestrictedImports names the three
 // forbidden directions. What is left here is about calls, not imports -- `Math.random` in the

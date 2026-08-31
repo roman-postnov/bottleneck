@@ -1,4 +1,4 @@
-// The car layers of CONTRACTS.md §13.2: one dot per vehicle, plus the route of the one being
+// The car layers of docs/CONTRACTS.md §13.2: one dot per vehicle, plus the route of the one being
 // followed. Layer factories only -- the state machine is in tracers.ts and stays deck.gl-free.
 
 import { PathLayer, ScatterplotLayer } from '@deck.gl/layers';

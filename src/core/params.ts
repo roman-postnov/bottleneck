@@ -1,4 +1,4 @@
-// Defaults and derived formulas from CONTRACTS.md §2.
+// Defaults and derived formulas from docs/CONTRACTS.md §2.
 // This is the single canonical statement of the formulas; do not restate them elsewhere.
 
 export const DEFAULTS = {

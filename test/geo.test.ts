@@ -1,9 +1,4 @@
-// The projection of CONTRACTS.md §13.2, pinned to deck.gl instead of to a second copy of itself.
-//
-// This is the test whose absence WAS the bug. The equirectangular 111320/110540 that used to live
-// here was pinned worker-to-render, so both copies agreed and both were wrong: the dots are drawn
-// in deck.gl's 'meter-offsets' and deck.gl's shader is what unprojects them, with its own
-// constants. A dot ended up 18 m off the road at 3 km from centre and 438 m off on the Keys.
+// Pin the shared §13.2 projection to deck.gl's own distance scales.
 
 import { WebMercatorViewport } from '@deck.gl/core';
 import { describe, expect, it } from 'vitest';

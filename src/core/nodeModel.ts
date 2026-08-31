@@ -1,4 +1,4 @@
-// The Daganzo node model (CONTRACTS.md §7.4). This is the physics of the project.
+// The Daganzo node model (docs/CONTRACTS.md §7.4). This is the physics of the project.
 //
 // It stays non-iterative because split shares belong to the node, not to an
 // (incoming, outgoing) pair: every incoming edge faces the same set of constraints, so a

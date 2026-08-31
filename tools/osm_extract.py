@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Step 1 of the preprocessor, CONTRACTS.md §4: .pbf -> intermediate JSON.
+"""Step 1 of the preprocessor, docs/CONTRACTS.md §4: .pbf -> intermediate JSON.
 
 Parses protobuf and nothing else. Every decision that can be got wrong -- geometry
 collapsing, direction, lanes, exits, population -- is made in tools/preprocess.ts, where it

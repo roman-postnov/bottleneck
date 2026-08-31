@@ -1,4 +1,4 @@
-// The tracer state machine of CONTRACTS.md §13.2, tested from the contract: one dot per
+// The tracer state machine of docs/CONTRACTS.md §13.2, tested from the contract: one dot per
 // vehicle, position by Newell's cumulative-count solution, route recorded as CSR decisions.
 //
 // src/render/tracers.ts imports no deck.gl on purpose, which is what lets all of this run here.

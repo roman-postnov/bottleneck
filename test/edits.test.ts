@@ -1,4 +1,4 @@
-// Interventions, CONTRACTS.md §9.1 and §9.3: hot application, and the schedule that makes a
+// Interventions, docs/CONTRACTS.md §9.1 and §9.3: hot application, and the schedule that makes a
 // closure made mid-run reproducible from the permalink.
 
 import { describe, expect, it } from 'vitest';

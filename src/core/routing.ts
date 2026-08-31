@@ -1,4 +1,4 @@
-// The routing field (CONTRACTS.md §6): reverse Dijkstra from the set of exits, turned into
+// The routing field (docs/CONTRACTS.md §6): reverse Dijkstra from the set of exits, turned into
 // split shares over the out-edges of every node.
 
 import { IndexedMinHeap } from './heap.ts';

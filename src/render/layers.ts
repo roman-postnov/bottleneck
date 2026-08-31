@@ -1,4 +1,4 @@
-// The binary PathLayer of CONTRACTS.md §13.1.
+// The binary PathLayer of docs/CONTRACTS.md §13.1.
 // The renderer knows vertices and a frame, never a graph (§15).
 
 import { PathStyleExtension } from '@deck.gl/extensions';

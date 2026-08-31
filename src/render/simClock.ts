@@ -1,4 +1,4 @@
-// The simulated clock the dots are drawn on (CONTRACTS.md §13.2). Frames arrive at whatever
+// The simulated clock the dots are drawn on (docs/CONTRACTS.md §13.2). Frames arrive at whatever
 // cadence the worker manages; the cars have to move smoothly between them, so this integrates
 // simulated time and corrects the RATE against the newest frame rather than the value.
 //

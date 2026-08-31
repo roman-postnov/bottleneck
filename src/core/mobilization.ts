@@ -1,4 +1,4 @@
-// Departure curve and staged release (CONTRACTS.md §7.5).
+// Departure curve and staged release (docs/CONTRACTS.md §7.5).
 
 import type { SimState } from './types.ts';
 

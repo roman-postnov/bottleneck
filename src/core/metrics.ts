@@ -1,4 +1,4 @@
-// Run statistics and the metric block of CONTRACTS.md §11.
+// Run statistics and the metric block of docs/CONTRACTS.md §11.
 
 import { GRIDLOCK_LOAD, OUTFLOW_WINDOW_SEC } from './params.ts';
 import type { Metrics, SimState } from './types.ts';

@@ -1,4 +1,4 @@
-// The loader of CONTRACTS.md §5, and the module §3 and §5 name: everything about a city.bin
+// The loader of docs/CONTRACTS.md §5, and the module §3 and §5 name: everything about a city.bin
 // is reached through this file. The parts live next door -- format.ts holds the byte layout
 // and the parser, graph.ts the geometry decoder and Tarjan, validate.ts the §3.3 invariants --
 // because a file that is at once a format, a graph algorithm and a validator is three files

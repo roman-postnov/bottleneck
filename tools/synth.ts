@@ -1,10 +1,6 @@
 #!/usr/bin/env node
-// Synthetic city generator. CONTRACTS.md §4bis.
-// Emits a valid §3 city.bin with no OSM involved, so the core, the routing field, the
-// renderer and the tests can all be built against the real format before the
-// preprocessor exists.
-//
-// Geometry is derived from indices, never from an RNG -- fixtures must be deterministic.
+// Synthetic city generator. docs/CONTRACTS.md §4bis.
+// Emits a valid §3 city.bin without OSM. Geometry comes from indices so fixtures stay deterministic.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';

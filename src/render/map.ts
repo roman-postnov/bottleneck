@@ -1,4 +1,4 @@
-// MapLibre basemap with a deck.gl canvas above it (CONTRACTS.md §13).
+// MapLibre basemap with a deck.gl canvas above it (docs/CONTRACTS.md §13).
 //
 // The map owns all interaction and deck follows it. The alternative -- inserting deck into
 // the maplibre layer stack -- couples us to a compatibility layer across two fast-moving

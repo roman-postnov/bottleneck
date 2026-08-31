@@ -1,4 +1,4 @@
-// The typed client for the simulation worker (CONTRACTS.md §8).
+// The typed client for the simulation worker (docs/CONTRACTS.md §8).
 // The only place in the main thread that knows postMessage exists.
 
 import type { CityMeta, Edit, Scenario } from '../core/types.ts';

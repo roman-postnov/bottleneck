@@ -1,4 +1,4 @@
-// The presets of CONTRACTS.md §18, generated rather than hand-typed.
+// The presets of docs/CONTRACTS.md §17, generated rather than hand-typed.
 //
 // The Paradise scenarios name edges by id, and an edge id means nothing to a reader. Deriving
 // them here from the road names and the routing field keeps the derivation in one auditable
@@ -82,7 +82,7 @@ function skywayContraflow(c: City): Edit[] {
 }
 
 /**
- * One more lane out, southbound only -- §18 preset 6, and the counterpart to the contraflow
+ * One more lane out, southbound only -- §17 preset 6, and the counterpart to the contraflow
  * above. Contraflow costs a morning and some cones; a lane costs years and a road project.
  * Both run against the same closures, so the ladder no-contraflow -> 2018 -> plus-lane prices
  * an operational measure against a capital one on the same graph.
@@ -168,7 +168,7 @@ write('sf-bridge-closed', 'San Francisco — Bay Bridge closed', {
   edits: bayBridge.map((e) => ({ op: 'close' as const, edgeId: e })),
 });
 
-// §18 preset 7. Nothing to intervene on: one road out, and the only lever left is leaving
+// §17 preset 7. Nothing to intervene on: one road out, and the only lever left is leaving
 // earlier -- which is a scenario parameter, not an edit to the network.
 write('keys-baseline', 'Florida Keys — one road out, 180 km of it', defaultScenario('keys'));
 

@@ -1,4 +1,4 @@
-// The simulation worker (CONTRACTS.md §8). Owns the city and the SimState; the main thread
+// The simulation worker (docs/CONTRACTS.md §8). Owns the city and the SimState; the main thread
 // only ever sees frames.
 
 import { loadCity } from '../core/city.ts';

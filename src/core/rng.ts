@@ -1,4 +1,4 @@
-// The only source of randomness in the project (CONTRACTS.md §10).
+// The only source of randomness in the project (docs/CONTRACTS.md §10).
 // Math.random() is forbidden in src/core and src/worker and is checked by test/boundaries.
 
 import { splitmix32 } from '../shared/rng.ts';

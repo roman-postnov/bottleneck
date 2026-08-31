@@ -1,4 +1,4 @@
-// Pacing for the run loop of CONTRACTS.md §1.1: how many whole ticks are due, and when a frame
+// Pacing for the run loop of docs/CONTRACTS.md §1.1: how many whole ticks are due, and when a frame
 // is allowed out. Ticks are never dropped for the clock's convenience; frames are thinned.
 
 /** Frames are thinned to this cadence; ticks are never dropped, only frames (§1.1). */

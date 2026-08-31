@@ -1,4 +1,4 @@
-// The simulation core (CONTRACTS.md §7). The public API here is exactly §7.2;
+// The simulation core (docs/CONTRACTS.md §7). The public API here is exactly §7.2;
 // the node model, the departure curve and the statistics live in their own files.
 
 import { classOf, NO_TWIN } from './city.ts';

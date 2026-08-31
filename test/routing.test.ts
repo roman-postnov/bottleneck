@@ -1,4 +1,4 @@
-// The routing field, from CONTRACTS.md §6.
+// The routing field, from docs/CONTRACTS.md §6.
 
 import { describe, expect, it } from 'vitest';
 import { DEFAULTS } from '../src/core/params.ts';

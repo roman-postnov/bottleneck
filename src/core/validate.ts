@@ -1,4 +1,4 @@
-// The invariants of CONTRACTS.md §3.3. Build-time only: the preprocessor and the tests run it,
+// The invariants of docs/CONTRACTS.md §3.3. Build-time only: the preprocessor and the tests run it,
 // the simulation never does.
 
 import { MAX_EDGE_LEN_M, NO_TWIN } from './format.ts';

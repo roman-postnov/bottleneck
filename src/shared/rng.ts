@@ -1,4 +1,4 @@
-// The splitmix32 mixer (CONTRACTS.md §10), in the one place both sides of the §15 boundary can
+// The splitmix32 mixer (docs/CONTRACTS.md §10), in the one place both sides of the §15 boundary can
 // reach. src/core needs the stateful generator; src/render needs a single mix of a slot index,
 // and §15 forbids it to import src/core. This file imports nothing, so it can sit under both.
 

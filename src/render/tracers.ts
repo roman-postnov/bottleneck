@@ -1,12 +1,5 @@
-// One dot per vehicle (CONTRACTS.md §13.2). A dot is a car: it is born in a driveway, takes a
-// route through the graph by the split shares of the routing field, and leaves the city.
-//
-// No deck.gl here on purpose. The layers live in layers.ts and this file is pure functions over
-// typed arrays, so the whole state machine runs under vitest in Node.
-//
-// The renderer still imports nothing from src/core (§15): the graph arrives in the ready
-// message as data. The mixer and the projection it shares with the worker live in src/shared,
-// which is a leaf and therefore on the legal side of that line.
+// One dot per vehicle (docs/CONTRACTS.md §13.2). This deck.gl-free typed-array state machine
+// receives the graph as worker data and remains testable in Node (§15).
 
 import { LANE_OFFSET_M } from '../shared/geo.ts';
 import { mix32 } from '../shared/rng.ts';

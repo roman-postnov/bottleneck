@@ -1,4 +1,4 @@
-// The sanity checks of CONTRACTS.md §14. A red test here means the merge is reverted.
+// The sanity checks of docs/CONTRACTS.md §14. A red test here means the merge is reverted.
 // Written from the contract; where a check cannot hold literally, the deviation is stated
 // in the test name and argued in a comment rather than quietly relaxed.
 

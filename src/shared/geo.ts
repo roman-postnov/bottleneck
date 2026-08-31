@@ -1,14 +1,5 @@
-// The metre-offset projection of CONTRACTS.md §13.2, in the one place both sides of the §15
-// boundary can reach. The worker places the parked cars and src/render places the moving ones,
-// so the two have to agree to the metre. This file imports nothing, so it can sit under both.
-//
-// It is not a projection of our choosing. The car layers are drawn in deck.gl's 'meter-offsets'
-// (§13.2), so deck.gl's vertex shader is what turns these numbers back into a position, and it
-// does so with ITS constants: EARTH_CIRCUMFERENCE = 40.03e6 over a 512-unit world, plus a
-// second-order term in y. What follows is the exact inverse of that mapping. The equirectangular
-// 111320/110540 it replaces was pinned worker-to-render and never to deck.gl, so both copies were
-// wrong together and the pin test stayed green; measured drift of a dot off the road it was
-// driving on: 18 m at 3 km from centre, 37 m at 6 km, 438 m at 55 km on the Florida Keys.
+// Shared inverse of deck.gl's meter-offset projection (docs/CONTRACTS.md §13.2). Worker and
+// renderer use the same constants so parked and moving cars align with road geometry.
 
 const TILE_SIZE = 512;
 const EARTH_CIRCUMFERENCE = 40.03e6;

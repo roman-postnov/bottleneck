@@ -1,4 +1,4 @@
-// The OSM preprocessor, CONTRACTS.md §4 steps 2-11. Every step is checked on a graph of a
+// The OSM preprocessor, docs/CONTRACTS.md §4 steps 2-11. Every step is checked on a graph of a
 // few nodes: a .pbf takes ten seconds to read and tells you nothing about which of the twelve
 // steps got it wrong.
 

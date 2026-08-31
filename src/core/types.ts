@@ -1,6 +1,4 @@
-// Every type declared by CONTRACTS.md §5-§12, in one place.
-// The contract was written in TypeScript from the start; these declarations are that text,
-// compiled. If a module needs a shape that is not here, the contract is silent on it.
+// Shared types for docs/CONTRACTS.md §5-§12.
 
 declare const brand: unique symbol;
 type Brand<T, B extends string> = T & { readonly [brand]: B };

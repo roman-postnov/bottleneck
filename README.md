@@ -159,6 +159,15 @@ boundary as success. It does not model:
 The resulting clearance times are deliberately idealised and optimistic. Compare scenarios and
 interventions; do not use a single run as an operational emergency forecast.
 
+## Technical documentation
+
+- [Technical contracts](docs/CONTRACTS.md) describe the data format, traffic model, worker
+  protocol, rendering pipeline, and engineering invariants.
+- [Model validation](docs/VALIDATION.md) records the targets, evidence, results, and known misses
+  for the built-in cities.
+- [Model limitations](docs/LIMITATIONS.md) explains what the model leaves out and how each
+  simplification can affect the result.
+
 ## Running it locally
 
 The repository includes four prebuilt city networks and ready-to-run scenarios, so the demo

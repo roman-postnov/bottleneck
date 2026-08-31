@@ -1,4 +1,4 @@
-// Max-flow and the minimum cut (CONTRACTS.md §12). Computed once per scenario, next to the
+// Max-flow and the minimum cut (docs/CONTRACTS.md §12). Computed once per scenario, next to the
 // simulation but never inside it: this is the theoretical ceiling the simulation is measured
 // against, and the cut is the part that gives an address rather than a number.
 
