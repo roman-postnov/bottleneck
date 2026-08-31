@@ -1,128 +1,182 @@
-<h1 align="center"><a href="https://roman-postnov.github.io/bottleneck/">🚀 OPEN THE LIVE DEMO</a></h1>
-
 # Bottleneck
 
-<p align="center">
-  <strong>Find the roads that decide whether a city clears.</strong><br>
-  An interactive evacuation simulator built on real road networks.
-</p>
+**Bottleneck is an interactive tool for testing city evacuation plans.** It shows how traffic
+moves, where queues form, and how road changes affect evacuation time.
 
-<p align="center">
+## Demo video
+
+### [Watch the Bottleneck demo on YouTube](https://www.youtube.com/watch?v=mi8d-WwaxR8)
+
+## Live demo
+
+### [Open Bottleneck in your browser](https://roman-postnov.github.io/bottleneck/)
+
+<p>
   <a href="https://github.com/roman-postnov/bottleneck/actions/workflows/ci.yml"><img alt="CI and deploy" src="https://github.com/roman-postnov/bottleneck/actions/workflows/ci.yml/badge.svg"></a>
   ·
   <a href="LICENSE">MIT License</a>
 </p>
 
-> **Max-flow gives the ceiling. The simulation shows the traffic. The minimum cut names the roads that matter.**
-
-Bottleneck turns a city's road network, population, and closure schedule into an explorable
-decision. It answers three questions that a static evacuation map cannot:
-
-- How quickly can this city move its vehicles out?
-- Where does the queue form when capacity is exceeded?
-- Which specific road, bridge, or corridor changes the outcome?
-
-The result is not another animated map. It is a way to connect a city-wide number to the
-small set of roads that controls it.
-
 <p align="center">
   <img src="docs/preview.png" alt="Bottleneck running a San Francisco evacuation scenario" width="100%">
 </p>
 
-## See it in 60 seconds
+### Explore the demo
 
 1. Open the [live demo](https://roman-postnov.github.io/bottleneck/).
-2. San Francisco opens first; press **Play** and enable **show the bottleneck**.
+2. San Francisco opens first; press **Play**.
 3. Watch individual cars, queues, spillback, and the clearance curve evolve together.
 4. Click a road to inspect its capacity and load, or a car to follow its route out.
 5. Switch to **Mercer Island** and the **Florida Keys** to see how network shape changes the result.
-6. Use **Copy link** to share any exact scenario.
 
-Every run is deterministic. Interventions are applied at the simulated minute when they happen,
-so a shared link reproduces both the inputs and the timing of the decision.
+An intervention is applied at the simulated minute when it happens. This makes it possible to
+test a response during an event, not only before the run begins.
 
-## What the demo makes visible
+## The problem
 
-| Question | What Bottleneck shows |
-|---|---|
-| Where does the city fail? | The minimum cut highlights every road that all successful routes must cross. |
-| What does failure look like? | Queues, storage limits, spillback, and individual vehicles evolve on the map. |
-| Can an intervention help? | Road closures, extra lanes, and contraflow can be introduced during the run. |
-| Does driver behaviour matter? | Routing information, occupancy, mobilisation, and road saturation are adjustable. |
-| Who is missing from a car-only model? | People without access to a car are reported separately instead of disappearing silently. |
+A static evacuation map shows possible routes, but it does not show whether those routes have
+enough capacity, where queues will spill back, or how a road change will affect the result.
+Bottleneck combines a real road network with a traffic simulation to answer three questions:
 
-## Real places, real questions
+- How quickly can the city move its vehicles out?
+- Where do queues form when capacity is exceeded?
+- How do closures, extra lanes, contraflow, and routing information change the outcome?
+
+Bottleneck is designed for screening, comparison, and discussion. It makes the assumptions
+behind each result visible instead of presenting a precise-looking number as a forecast.
+
+### Real places, real questions
 
 | Case | Why it matters |
 |---|---|
 | **San Francisco, California** | A large network with alternative corridors, bridges, and non-obvious spare capacity. |
 | **Mercer Island, Washington** | An island network where I-90 is the decisive way out. |
-| **Florida Keys** | A long, linear chain of islands where a dominant highway controls the result. |
-| **Paradise, California** | A documented historical case with timed closures, contraflow, and four arterial exits. |
+| **Florida Keys** | A long, nearly linear island chain controlled by a dominant highway. |
+| **Paradise, California** | A documented historical case with timed closures and four arterial exits. |
 
-A few results from the built-in scenarios:
+Examples from the built-in scenarios:
 
 - In **San Francisco**, the baseline run reaches T90 in 10 h 14 min; closing the Bay Bridge
   adds 2 h 05 min.
-- On **Mercer Island**, the baseline reaches T90 in 2 h 49 min and identifies I-90 as the
-  decisive way out.
-- In the **Florida Keys**, the baseline reaches T90 in 20 h 14 min, making the fragility of a
-  180 km linear network visible.
-- In **Paradise**, the historical scenarios provide an additional comparison against the
-  documented Camp Fire road network and closure timeline.
+- On **Mercer Island**, the baseline reaches T90 in 2 h 49 min.
+- In the **Florida Keys**, the baseline reaches T90 in 20 h 14 min, exposing the fragility of
+  a long, nearly linear network.
 
-These are scenario results, not emergency forecasts. The project keeps its assumptions and
-known misses explicit instead of presenting one run as a prediction.
+These are scenario results, not emergency forecasts.
 
 ## How it works
 
 ~~~mermaid
 flowchart LR
-  A[Real road data] --> B[City network]
-  B --> C[Traffic simulation]
-  C --> D[Live queues and vehicles]
-  C --> E[Clearance curve]
-  B --> F[Max-flow and min-cut]
-  F --> G[Critical roads]
+  A[OpenStreetMap data] --> B[Preprocessed city network]
+  B --> C[Mesoscopic traffic simulation]
+  B --> D[Max-flow and minimum cut]
+  C --> E[Queues, spillback, and vehicles]
+  C --> F[Clearance metrics]
+  D --> G[Critical roads]
 ~~~
 
-The core is a mesoscopic traffic model: roads have capacity and storage, nodes handle merges
-and diverges, and spillback emerges from those constraints. This keeps the model fast enough
-for a browser while preserving the behaviour that makes evacuation planning difficult.
+The simulation is mesoscopic: every road has a flow capacity and a storage limit, while nodes
+resolve merges and diverges. This is detailed enough for queues and spillback to emerge from
+the model, but compact enough to run an entire city in a browser.
 
-The engineering choices support the explanation:
+The mathematical and transport models are explicit and testable:
 
-- **Explainable capacity:** max-flow computes the theoretical outbound ceiling, while the
-  minimum cut maps that ceiling back to real roads.
-- **Traffic, not just throughput:** route choice, mobilization, queues, and time-stamped edits
-  turn a single capacity number into a visible process.
-- **Deterministic scenarios:** the same inputs produce the same run, making comparisons and
-  shared links reproducible.
-- **Browser-native performance:** TypeScript, React, Vite, Web Workers, typed arrays, deck.gl,
-  and MapLibre run the simulation as a static site with no application server.
-- **Honest boundaries:** the interface exposes assumptions instead of presenting a precise-looking
-  number as a prediction.
+- **Dinic max-flow and minimum cut** calculate the theoretical outbound ceiling and map it
+  back to the roads that constrain every successful route. Capacities use whole vehicles per
+  hour, so max-flow/min-cut equality is exact without a tuned floating-point tolerance.
+- **Daganzo node model** distributes flow through merges and diverges using capacity-weighted
+  proportional allocation with saturation. A blocked direction can hold back a shared
+  approach, allowing spillback to propagate through the network.
+- **Reverse Dijkstra and multinomial logit routing** build routes from every node toward the
+  exits. Informed drivers can respond to observed queues while uninformed drivers continue to
+  price routes by free-flow travel time.
+- **Rayleigh mobilisation curve** releases household demand over time in closed form, keeping
+  departures tied to the population mass balance.
+- **Newell cumulative-count trajectories** place each visible car from the simulation's own
+  edge counts. One dot represents one car rather than a decorative traffic particle.
+- **Seeded xorshift128+ randomness** makes every scenario deterministic: identical inputs
+  reproduce the same run, comparison, and shared link.
 
-## Run locally
+Road edits are time-stamped and rebuild the affected network state. The simulation then reports
+T90 clearance time, peak outbound flow, queues, spillback, stranded vehicles, and efficiency
+against the max-flow ceiling.
 
-The repository includes four real city networks and ready-to-run scenarios. No data download is
-needed for the demo.
+### Architecture
 
-Requires Node.js 24, the version used by CI:
+~~~text
+src/core      Pure traffic and graph models over typed arrays
+    ↓
+src/worker    Simulation lifecycle and browser message boundary
+    ↓
+src/main      Application state and worker coordination
+    ├── src/ui       React controls and metrics
+    └── src/render   MapLibre and deck.gl visualisation
+
+tools         Offline OpenStreetMap extraction and preprocessing
+~~~
+
+The simulation runs in a Web Worker so map interaction remains responsive. Frames do not pass
+through React; only throttled summaries update the interface. Import restrictions, shared
+protocol types, deterministic tests, and a single reader/writer definition for the binary city
+format enforce the architectural boundaries.
+
+## Tech stack
+
+| Area | Technology |
+|---|---|
+| Application | TypeScript, React, Vite |
+| Simulation | Web Workers, typed arrays, deterministic mathematical models |
+| Mapping | MapLibre GL, deck.gl |
+| Road and population data | OpenStreetMap, Geofabrik extracts, documented NIST and U.S. Census inputs |
+| Offline data pipeline | Python, pyosmium, TypeScript |
+| Quality | TypeScript strict checks, Biome, Vitest |
+| Hosting and delivery | GitHub Actions, GitHub Pages |
+
+The deployed application is a static site. The city data ships with it, and the simulation runs
+locally in the user's browser; no application server is required.
+
+## Validation and limitations
+
+Validation ranges were written before running the model. A target that the model misses remains
+an explicitly named expected failure instead of being moved to fit the result. Tests cover mass
+conservation, capacity, routing, determinism, graph invariants, time-stamped edits, visual car
+counts, and real-city scenario checks.
+
+The Paradise case correctly identifies the four documented escape arteries, but the simulated
+fire-closure scenario clears earlier than the historical target. The closure schedule is
+simplified, and closing a road does not model fire spread or the disruption to vehicles already
+on it. This known miss is retained as part of the validation record.
+
+Bottleneck models vehicle evacuation inside a selected boundary and treats crossing that
+boundary as success. It does not model:
+
+- fire spread or other evolving hazards;
+- pedestrians, public transport, or household-level decisions;
+- neighbouring traffic outside the selected boundary;
+- travel from the boundary to a genuinely safe destination.
+
+The resulting clearance times are deliberately idealised and optimistic. Compare scenarios and
+interventions; do not use a single run as an operational emergency forecast.
+
+## Running it locally
+
+The repository includes four prebuilt city networks and ready-to-run scenarios, so the demo
+does not require a data download. Use Node.js 24, which is also used by CI:
 
 ~~~sh
 npm ci
 npm run dev
 ~~~
 
-To build and preview the production bundle:
+Build and preview the production bundle:
 
 ~~~sh
 npm run build
 npm run preview
 ~~~
 
-For development checks:
+Run type checks, linting, and the test suite:
 
 ~~~sh
 npm run check
@@ -142,31 +196,23 @@ npm run extract -- <cityId>
 npm run preprocess -- <cityId>
 ~~~
 
-The prebuilt networks remain available, so this step is only needed when changing the source
-data or preprocessing rules.
+The prebuilt networks remain available, so this is only necessary when changing the source data
+or preprocessing rules.
 
 </details>
 
-## Scope and limitations
-
-Bottleneck is a screening and discussion tool, not an operational emergency model. It simulates
-vehicle evacuation inside a selected boundary and treats crossing that boundary as success.
-
-It does not model fire spread, pedestrians, public transport, household-level decisions,
-neighbouring traffic outside the boundary, or the route to a safe destination. Its results are
-deliberately idealised and optimistic; compare scenarios and interventions rather than treating
-one run as a forecast.
-
-The model's assumptions and the direction in which they can move the result are part of the
-interpretation of every run.
-
 ## Data and attribution
 
-- Road geometry and building footprints come from [OpenStreetMap](https://www.openstreetmap.org/copyright)
-  extracts downloaded through [Geofabrik](https://download.geofabrik.de/).
+- Road geometry and building footprints come from
+  [OpenStreetMap](https://www.openstreetmap.org/copyright) extracts downloaded through
+  [Geofabrik](https://download.geofabrik.de/).
 - Population inputs come from the documented NIST and U.S. Census sources for each case.
 - The basemap is provided by MapLibre and CARTO; attribution is shown in the application.
-- Preprocessed city networks are shipped as static assets with the Pages deployment; the
-  simulation itself runs in the browser.
+- Preprocessed city networks ship as static assets with the Pages deployment.
 
-Code is available under the [MIT License](LICENSE).
+The code is available under the [MIT License](LICENSE).
+
+## The team
+
+**Roman Postnov — solo developer.** Product concept, mathematical modelling, data pipeline,
+frontend, visualisation, validation, and deployment.
